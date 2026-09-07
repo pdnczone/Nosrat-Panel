@@ -109,17 +109,25 @@ log "Python dependencies installed"
 # ── Step 5: Build frontend ────────────────────────────────────────────────
 header "Step 5/7: Building frontend"
 cd "$INSTALL_DIR/frontend"
+# Disable set -e for this section so individual failures don't abort install
+set +e
 log "Running npm install (this may take a few minutes)..."
-if ! npm install --no-audit --no-fund 2>&1 | tail -10; then
-    err "npm install failed - check Node.js version (need 18+)"
-    warn "Continuing anyway - frontend may need manual build later"
+# Use --legacy-peer-deps to work around svelte-chartjs/Svelte 5 peer dep mismatch
+npm install --legacy-peer-deps --no-audit --no-fund 2>&1 | tail -10
+INSTALL_EXIT=$?
+if [[ $INSTALL_EXIT -ne 0 ]]; then
+    echo -e "${YELLOW}[!]${NC} npm install failed - check Node.js version (need 18+)"
+    echo -e "${YELLOW}[!]${NC} Continuing anyway - frontend may need manual build later"
 fi
 log "Running npm build..."
-if ! npm run build 2>&1 | tail -10; then
-    err "npm build failed - check error messages above"
-    warn "Continuing anyway - you can rebuild manually later"
+npm run build 2>&1 | tail -10
+BUILD_EXIT=$?
+if [[ $BUILD_EXIT -ne 0 ]]; then
+    echo -e "${YELLOW}[!]${NC} npm build failed - check error messages above"
+    echo -e "${YELLOW}[!]${NC} Continuing anyway - you can rebuild manually later"
 fi
 log "Frontend built"
+set -e
 
 # ── Step 6: Install systemd service ───────────────────────────────────────
 header "Step 6/7: Installing systemd service"
