@@ -17,6 +17,7 @@
   import Health from './routes/Health.svelte';
   import Speed from './routes/Speed.svelte';
   import Servers from './routes/Servers.svelte';
+  import Nodes from './routes/Nodes.svelte';
   import Users from './routes/Users.svelte';
   import Settings from './routes/Settings.svelte';
   import NotFound from './routes/NotFound.svelte';
@@ -116,6 +117,8 @@
           <Speed />
         {:else if route.route === 'servers'}
           <Servers />
+        {:else if route.route === 'nodes'}
+          <Nodes />
         {:else if route.route === 'users'}
           <Users />
         {:else if route.route === 'settings'}

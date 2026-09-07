@@ -57,6 +57,7 @@
     "health": "Health",
     "speed": "Speed",
     "servers": "Servers",
+    "nodes": "Nodes",
     "users": "Users",
     "settings": "Settings",
     "logout": "Logout",
@@ -222,6 +223,11 @@
     "title": "Servers",
     "new_server": "New server",
     "test_connection": "Test connection",
+    "test_ssh": "Test SSH (async)",
+    "install_node": "Install node",
+    "open_terminal": "Terminal",
+    "edit": "Edit",
+    "node_installed": "Node installed",
     "fields": {
       "name": "Name",
       "host": "Host",
@@ -229,12 +235,21 @@
       "username": "Username",
       "auth_method": "Auth method",
       "private_key": "Private key",
-      "password": "Password"
+      "password": "Password",
+      "location": "Location",
+      "node_name": "Node name"
     },
     "auth_methods": {
       "key": "SSH key",
       "password": "Password",
       "agent": "SSH Agent"
+    },
+    "node": {
+      "status_online": "Online",
+      "status_offline": "Offline",
+      "status_installing": "Installing",
+      "installed": "Installed",
+      "not_installed": "Not installed"
     }
   },
   "users": {
@@ -296,5 +311,58 @@
     "back_home": "Back to dashboard",
     "forbidden": "Forbidden",
     "server": "Server error"
+  },
+  "nodes": {
+    "title": "Nodes",
+    "new_install": "Install new node",
+    "list": "Node list",
+    "fields": {
+      "node_name": "Node name",
+      "location": "Location",
+      "force": "Force reinstall",
+      "command": "Command",
+      "args": "Args (JSON)",
+      "timeout": "Timeout (sec)"
+    },
+    "locations": {
+      "iran": "Iran",
+      "external": "External"
+    },
+    "actions": {
+      "install": "Install node",
+      "terminal": "SSH terminal",
+      "open_terminal": "Open terminal",
+      "metrics": "Metrics chart",
+      "send_command": "Send command",
+      "view_logs": "View logs",
+      "view_commands": "Command history",
+      "close": "Close",
+      "cancel_install": "Cancel install"
+    },
+    "metrics": {
+      "cpu": "CPU",
+      "ram": "RAM",
+      "disk": "Disk",
+      "network_rx": "RX",
+      "network_tx": "TX",
+      "load": "Load average",
+      "uptime": "Uptime",
+      "hostname": "Hostname",
+      "no_data": "No metrics yet"
+    },
+    "install": {
+      "title": "Install node on server",
+      "intro": "The installer opens an SSH session, sets up packages and drops the agent under /opt/nosrat-node.",
+      "log_title": "Install log",
+      "running": "Installing...",
+      "completed": "Install completed",
+      "failed": "Install failed",
+      "live_log": "Live log"
+    },
+    "terminal": {
+      "title": "SSH terminal",
+      "reconnect": "Reconnect",
+      "disconnected": "Disconnected"
+    }
   }
 }

@@ -73,6 +73,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = str(BACKEND_DIR / "data" / "backend.log")
 
+    # ── Node agent / installer ────────────────────────────────────────────
+    node_agent_dir: str = str(PROJECT_ROOT / "node-agent")
+    node_install_timeout_sec: int = 600
+    node_ws_register_timeout_sec: int = 45
+    app_public_url: str = ""  # set in .env so the installer hands the agent a stable URL
+
     # ── Defaults for the bootstrap admin user ───────────────────────────────────────────────────────
     bootstrap_admin_username: str = "admin"
     bootstrap_admin_password: str = "admin"

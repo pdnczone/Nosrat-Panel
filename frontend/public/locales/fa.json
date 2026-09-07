@@ -57,6 +57,7 @@
     "health": "سلامت",
     "speed": "سرعت",
     "servers": "سرورها",
+    "nodes": "نودها",
     "users": "کاربران",
     "settings": "تنظیمات",
     "logout": "خروج",
@@ -222,6 +223,11 @@
     "title": "سرورها",
     "new_server": "سرور جدید",
     "test_connection": "تست اتصال",
+    "test_ssh": "تست SSH (async)",
+    "install_node": "نصب نود",
+    "open_terminal": "ترمینال",
+    "edit": "ویرایش",
+    "node_installed": "نود نصب شده",
     "fields": {
       "name": "نام",
       "host": "میزبان",
@@ -229,12 +235,21 @@
       "username": "نام کاربری",
       "auth_method": "روش احراز هویت",
       "private_key": "کلید خصوصی",
-      "password": "گذرواژه"
+      "password": "گذرواژه",
+      "location": "موقعیت",
+      "node_name": "نام نود"
     },
     "auth_methods": {
       "key": "کلید SSH",
       "password": "گذرواژه",
       "agent": "SSH Agent"
+    },
+    "node": {
+      "status_online": "آنلاین",
+      "status_offline": "آفلاین",
+      "status_installing": "در حال نصب",
+      "installed": "نصب شده",
+      "not_installed": "نصب نشده"
     }
   },
   "users": {
@@ -296,5 +311,58 @@
     "back_home": "بازگشت به داشبورد",
     "forbidden": "دسترسی غیرمجاز",
     "server": "خطای سرور"
+  },
+  "nodes": {
+    "title": "نودها",
+    "new_install": "نصب نود جدید",
+    "list": "لیست نودها",
+    "fields": {
+      "node_name": "نام نود",
+      "location": "موقعیت",
+      "force": "نصب مجدد (force)",
+      "command": "دستور",
+      "args": "آرگومان‌ها (JSON)",
+      "timeout": "مهلت زمانی (ثانیه)"
+    },
+    "locations": {
+      "iran": "ایران",
+      "external": "خارج"
+    },
+    "actions": {
+      "install": "نصب نود",
+      "terminal": "ترمینال SSH",
+      "open_terminal": "باز کردن ترمینال",
+      "metrics": "نمودار مصرف",
+      "send_command": "ارسال دستور",
+      "view_logs": "مشاهده لاگ‌ها",
+      "view_commands": "تاریخچه دستورات",
+      "close": "بستن",
+      "cancel_install": "لغو نصب"
+    },
+    "metrics": {
+      "cpu": "پردازنده",
+      "ram": "حافظه",
+      "disk": "دیسک",
+      "network_rx": "دریافت",
+      "network_tx": "ارسال",
+      "load": "میانگین بار",
+      "uptime": "آپتایم",
+      "hostname": "نام میزبان",
+      "no_data": "هنوز داده‌ای دریافت نشده"
+    },
+    "install": {
+      "title": "نصب نود بر روی سرور",
+      "intro": "نصب‌کننده به سرور متصل می‌شود، پکیج‌ها را نصب کرده و فایل‌های نود را در /opt/nosrat-node قرار می‌دهد.",
+      "log_title": "گزارش نصب",
+      "running": "در حال نصب...",
+      "completed": "نصب با موفقیت انجام شد",
+      "failed": "نصب ناموفق بود",
+      "live_log": "لاگ زنده"
+    },
+    "terminal": {
+      "title": "ترمینال SSH",
+      "reconnect": "اتصال مجدد",
+      "disconnected": "اتصال قطع شد"
+    }
   }
 }

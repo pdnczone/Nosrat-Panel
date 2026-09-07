@@ -58,7 +58,27 @@ export const ServersAPI = {
   create: (payload) => api.post('/servers', payload).then((r) => r.data),
   update: (id, payload) => api.put(`/servers/${id}`, payload).then((r) => r.data),
   delete: (id) => api.delete(`/servers/${id}`).then((r) => r.data),
-  test: (id) => api.post(`/servers/${id}/test`).then((r) => r.data)
+  test: (id) => api.post(`/servers/${id}/test`).then((r) => r.data),
+  testSSH: (id, payload) => api.post(`/servers/${id}/test-ssh`, payload || {}).then((r) => r.data),
+  nodeInfo: (id) => api.get(`/servers/${id}/node-info`).then((r) => r.data),
+  installNode: (id, payload) => api.post(`/servers/${id}/install-node`, payload || {}).then((r) => r.data),
+  installStatus: (id, afterLine = 0) =>
+    api.get(`/servers/${id}/install-status`, { params: { after_line: afterLine } }).then((r) => r.data),
+  terminalUrl: (id, cols = 80, rows = 24) =>
+    `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/servers/${id}/terminal?cols=${cols}&rows=${rows}`
+};
+
+// ---------- Node endpoints ----------
+export const NodesAPI = {
+  list: () => api.get('/nodes').then((r) => r.data),
+  get: (id) => api.get(`/nodes/${id}`).then((r) => r.data),
+  command: (id, payload) => api.post(`/nodes/${id}/command`, payload).then((r) => r.data),
+  metrics: (id, params) => api.get(`/nodes/${id}/metrics`, { params }).then((r) => r.data),
+  latestMetric: (id) => api.get(`/nodes/${id}/metrics/latest`).then((r) => r.data),
+  logs: (id, params) => api.get(`/nodes/${id}/logs`, { params }).then((r) => r.data),
+  commands: (id, params) => api.get(`/nodes/${id}/commands`, { params }).then((r) => r.data),
+  eventsUrl: () =>
+    `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/nodes/ws`
 };
 
 // ---------- Crypto endpoints ----------

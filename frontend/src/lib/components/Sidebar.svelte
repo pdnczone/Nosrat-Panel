@@ -12,7 +12,8 @@
     Users,
     Settings,
     LogOut,
-    Shield
+    Shield,
+    Cpu
   } from 'lucide-svelte';
 
   let { currentPath = '/', onNavigate = () => {}, collapsed = false } = $props();
@@ -24,6 +25,7 @@
     { path: '/health', icon: Activity, label: $_('nav.health') },
     { path: '/speed', icon: Gauge, label: $_('nav.speed') },
     { path: '/servers', icon: Server, label: $_('nav.servers') },
+    { path: '/nodes', icon: Cpu, label: $_('nav.nodes') },
     { path: '/users', icon: Users, label: $_('nav.users'), adminOnly: true },
     { path: '/settings', icon: Settings, label: $_('nav.settings') }
   ]);

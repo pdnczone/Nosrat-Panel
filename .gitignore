@@ -19,6 +19,7 @@ dist/
 build/
 .vite/
 *.tsbuildinfo
+package-lock.json
 
 # Environment
 .env
@@ -74,3 +75,7 @@ htmlcov/
 build/
 dist/
 target/
+
+# Screenshots (dev only)
+screenshot*.mjs
+screenshots/

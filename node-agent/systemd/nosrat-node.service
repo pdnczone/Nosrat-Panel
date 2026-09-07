@@ -1,0 +1,18 @@
+[Unit]
+Description=nosrat-panel node agent
+Documentation=https://github.com/pdnczone/Nosrat-Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/nosrat-node/config.env
+ExecStart=/opt/nosrat-node/venv/bin/python /opt/nosrat-node/agent.py
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

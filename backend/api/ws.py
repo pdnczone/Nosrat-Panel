@@ -1,22 +1,28 @@
-"""WebSocket endpoints for live status and log streaming."""
+"""WebSocket endpoints for live status, log streaming and node agents."""
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import time
-from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from jose import JWTError, jwt
 
+from api.nodes import complete_command, mark_registered, record_log, record_metric
+from core.agent_auth import AgentAuthError, decode_node_token, has_scope
+from core.agent_bus import bus, parse_payload, safe_send_json
 from core.config import settings
-from core.deps import get_current_user
 from core.plugin_loader import plugin_registry
 from core.subprocess import run
 from db.database import SessionLocal
+from db.schemas import (
+    NodeCommandResultIn,
+    NodeLogIn,
+    NodeMetricIn,
+    NodeRegisterIn,
+)
 
 
 logger = logging.getLogger("nosrat.api.ws")
@@ -199,3 +205,216 @@ def _chunk_lines(text: str, *, size: int = 256) -> list[str]:
     if not text:
         return []
     return [text[i : i + size] for i in range(0, len(text), size)]
+
+
+# ── /ws/agent ────────────────────────────────────────────────────────────
+
+
+@router.websocket("/ws/agent")
+async def agent_socket(
+    websocket: WebSocket,
+    token: str | None = Query(default=None),
+) -> None:
+    """Persistent WebSocket used by ``nosrat-node`` agents.
+
+    Auth: ``?token=<node-jwt>`` (see ``core.agent_auth``).
+
+    Messages from agent -> panel:
+
+    * ``{"type": "register", "payload": NodeRegisterIn}``
+    * ``{"type": "metrics",  "payload": NodeMetricIn}``
+    * ``{"type": "log",      "payload": NodeLogIn}``
+    * ``{"type": "command_result", "id": "...", "payload": NodeCommandResultIn}``
+    * ``{"type": "pong"}``
+
+    Messages from panel -> agent:
+
+    * ``{"type": "command", "id": "...", "payload": {...}}``
+    * ``{"type": "ping"}``
+    * ``{"type": "update",  "payload": {"version": "..."}}``
+    """
+    if not token:
+        auth = websocket.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            token = auth.split(" ", 1)[1].strip()
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="missing token")
+        return
+
+    try:
+        claims = decode_node_token(token)
+    except AgentAuthError as exc:
+        logger.warning("agent auth failed: %s", exc)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=str(exc))
+        return
+
+    server_id_raw = claims.get("server_id")
+    if server_id_raw is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="missing server_id")
+        return
+    try:
+        server_id = int(server_id_raw)
+    except (TypeError, ValueError):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="invalid server_id")
+        return
+    if not has_scope(claims, f"server:{server_id}"):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="scope mismatch")
+        return
+
+    await websocket.accept()
+    conn = await bus.register(server_id, websocket)
+    conn.node_name = claims.get("node_name")
+    conn.location = claims.get("location")
+
+    logger.info(
+        "agent ws opened server_id=%s node=%s location=%s",
+        server_id,
+        conn.node_name,
+        conn.location,
+    )
+
+    # Heartbeat task
+    heartbeat_task: asyncio.Task[None] | None = None
+    stop_event = asyncio.Event()
+
+    async def _heartbeat() -> None:
+        try:
+            while not stop_event.is_set():
+                await asyncio.sleep(settings.ws_heartbeat_sec)
+                if not await safe_send_json(websocket, {"type": "ping", "ts": time.time()}):
+                    break
+        except asyncio.CancelledError:
+            return
+
+    try:
+        heartbeat_task = asyncio.create_task(_heartbeat())
+
+        while True:
+            msg = await websocket.receive()
+            if msg.get("type") == "websocket.disconnect":
+                break
+            raw = msg.get("text") or msg.get("bytes") or b""
+            data = parse_payload(raw if isinstance(raw, str) else raw.decode("utf-8", errors="replace"))
+            if data is None:
+                continue
+            bus.touch(server_id)
+            mtype = data.get("type")
+            mid = data.get("id")
+            payload = data.get("payload") or {}
+
+            if mtype == "register":
+                try:
+                    reg = NodeRegisterIn.model_validate(payload)
+                    conn.hostname = reg.hostname
+                    conn.version = reg.version
+                    mark_registered(
+                        server_id,
+                        hostname=reg.hostname,
+                        version=reg.version,
+                        location=reg.location or conn.location,
+                    )
+                    await safe_send_json(
+                        websocket,
+                        {
+                            "type": "registered",
+                            "id": mid,
+                            "payload": {"server_id": server_id, "ok": True},
+                        },
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("register parse failed")
+                    await safe_send_json(
+                        websocket,
+                        {"type": "error", "id": mid, "payload": {"error": str(exc)}},
+                    )
+                continue
+
+            if mtype == "metrics":
+                try:
+                    metric = NodeMetricIn.model_validate(payload)
+                    record_metric(server_id, metric)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("metrics parse failed: %s", exc)
+                continue
+
+            if mtype == "log":
+                try:
+                    entry = NodeLogIn.model_validate(payload)
+                    record_log(server_id, entry.level, entry.source, entry.message)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("log parse failed: %s", exc)
+                continue
+
+            if mtype == "command_result":
+                try:
+                    result = NodeCommandResultIn.model_validate({"command_id": mid, **payload})
+                    complete_command(
+                        server_id,
+                        command_id=result.command_id,
+                        status=result.status,
+                        stdout=result.stdout,
+                        stderr=result.stderr,
+                        exit_code=result.exit_code,
+                    )
+                    bus.resolve_command(server_id, "command_result", data)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("command_result failed: %s", exc)
+                continue
+
+            if mtype == "pong":
+                continue
+
+            # Unrecognised message — log and ignore.
+            logger.debug("agent ws: unknown type=%r", mtype)
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("agent ws error server=%s: %s", server_id, exc)
+    finally:
+        stop_event.set()
+        if heartbeat_task:
+            heartbeat_task.cancel()
+        await bus.unregister(server_id, websocket)
+
+
+# ── /api/nodes/ws (operator-facing fan-out of agent events) ───────────────
+
+
+@router.websocket("/api/nodes/ws")
+async def node_events_socket(websocket: WebSocket) -> None:
+    """Operator channel that mirrors agent activity as Svelte store events.
+
+    The frontend opens ``/api/nodes/ws`` to receive real-time updates
+    (metrics, logs, command results) without having to subscribe to a
+    specific node first.
+    """
+    token = websocket.query_params.get("token")
+    if not token:
+        auth = websocket.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            token = auth.split(" ", 1)[1].strip()
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    try:
+        claims = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    if claims.get("type") != "access":
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    await websocket.accept()
+    # Lightweight polling fan-out; in production swap for pubsub.
+    last_sent: dict[int, float] = {}
+    try:
+        while True:
+            snapshot = bus.snapshot()
+            await websocket.send_json({"type": "node_snapshot", "ts": time.time(), "nodes": snapshot})
+            await asyncio.sleep(2.0)
+            last_sent[0] = time.time()
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("node events ws closed: %s", exc)
