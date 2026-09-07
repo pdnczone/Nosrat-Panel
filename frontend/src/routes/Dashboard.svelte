@@ -17,6 +17,7 @@
   let activity = $state([]);
   let tunnels = $state([]);
   let loading = $state(true);
+  const s = $derived(stats || {});
 
   const wsEvents = wsMessages('/ws/events');
   let realtimeTraffic = $state({ rx: 0, tx: 0, history: [] });
@@ -95,7 +96,6 @@
     <LoadingSpinner centered text={$_('common.loading')} />
   {:else}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {@const s = stats || {}}
       <div class="card">
         <div class="flex items-center justify-between">
           <div>

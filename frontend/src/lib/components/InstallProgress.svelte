@@ -4,8 +4,8 @@
 -->
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { ServersAPI } from '../lib/api.js';
-  import { _ } from '../lib/i18n.js';
+  import { ServersAPI } from '../../lib/api.js';
+  import { _ } from '../../lib/i18n.js';
   import Button from './Button.svelte';
 
   let { serverId, serverName = '', onClose = () => {} } = $props();

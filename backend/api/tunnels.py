@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -169,7 +169,7 @@ async def get_tunnel(
     return TunnelOut.model_validate(tunnel)
 
 
-@router.delete("/{tunnel_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{tunnel_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
 async def delete_tunnel(
     tunnel_id: int,
     request: Request,

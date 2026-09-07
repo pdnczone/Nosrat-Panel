@@ -16,7 +16,7 @@ from core.agent_bus import bus, parse_payload, safe_send_json
 from core.config import settings
 from core.plugin_loader import plugin_registry
 from core.subprocess import run
-from db.database import SessionLocal
+from core.database import SessionLocal
 from db.schemas import (
     NodeCommandResultIn,
     NodeLogIn,

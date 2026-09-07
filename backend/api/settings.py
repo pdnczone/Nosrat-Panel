@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 from sqlalchemy.orm import Session
 
@@ -110,7 +110,7 @@ async def set_setting(
     return SettingOut.model_validate(row)
 
 
-@router.delete("/{key}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{key}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
 async def delete_setting(
     key: str,
     request: Request,

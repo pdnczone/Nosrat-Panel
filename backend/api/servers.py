@@ -192,7 +192,7 @@ async def update_server(
     return ServerOut.model_validate(server)
 
 
-@router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
 async def delete_server(
     server_id: int,
     request: Request,
