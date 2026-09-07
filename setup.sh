@@ -109,12 +109,22 @@ log "Python dependencies installed"
 # ── Step 5: Build frontend ────────────────────────────────────────────────
 header "Step 5/7: Building frontend"
 cd "$INSTALL_DIR/frontend"
-npm install --silent --no-audit --no-fund 2>&1 | tail -3
-npm run build 2>&1 | tail -5
+log "Running npm install (this may take a few minutes)..."
+if ! npm install --no-audit --no-fund 2>&1 | tail -10; then
+    err "npm install failed - check Node.js version (need 18+)"
+    warn "Continuing anyway - frontend may need manual build later"
+fi
+log "Running npm build..."
+if ! npm run build 2>&1 | tail -10; then
+    err "npm build failed - check error messages above"
+    warn "Continuing anyway - you can rebuild manually later"
+fi
 log "Frontend built"
 
 # ── Step 6: Install systemd service ───────────────────────────────────────
 header "Step 6/7: Installing systemd service"
+# Disable set -e for this section so individual failures don't abort install
+set +e
 if [[ -f "$INSTALL_DIR/systemd/nosrat-panel-backend.service" ]]; then
     cp "$INSTALL_DIR/systemd/nosrat-panel-backend.service" "$SERVICE_FILE"
     systemctl daemon-reload
@@ -131,28 +141,31 @@ if [[ -f "$INSTALL_DIR/systemd/nginx-nosrat-panel.conf" ]]; then
     # Remove default site if present
     rm -f /etc/nginx/sites-enabled/default
     if nginx -t 2>/dev/null; then
-        systemctl reload nginx
+        systemctl reload nginx 2>/dev/null || true
         log "Nginx configured and reloaded"
     else
         warn "Nginx config has issues - please check manually"
     fi
 fi
+set -e
 
 # ── Step 7: Initialize database and start ─────────────────────────────────
 header "Step 7/7: Initializing and starting"
 mkdir -p /var/log/nosrat-panel
+set +e
 
 # Start the service
 if [[ -f "$SERVICE_FILE" ]]; then
-    systemctl restart nosrat-panel-backend.service
-    sleep 2
-    
-    if systemctl is-active --quiet nosrat-panel-backend.service; then
+    systemctl restart nosrat-panel-backend.service 2>/dev/null
+    sleep 3
+
+    if systemctl is-active --quiet nosrat-panel-backend.service 2>/dev/null; then
         log "nosrat-panel backend is running"
     else
         warn "Backend failed to start - check: journalctl -u nosrat-panel-backend -n 20"
     fi
 fi
+set -e
 
 # ── Final info ────────────────────────────────────────────────────────────
 echo ""
