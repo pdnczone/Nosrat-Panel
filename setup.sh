@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # nosrat-panel installer
 # Usage: sudo bash setup.sh
-set -Eeuo pipefail
+set -Eeo pipefail
 
 # ── Colors ─────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -63,16 +63,35 @@ log "Dependencies installed"
 
 # ── Step 3: Copy application files ────────────────────────────────────────
 header "Step 3/7: Installing nosrat-panel"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# When invoked via `curl | bash`, BASH_SOURCE is not set, so we clone
+# the repo from GitHub instead of trying to use the script's directory.
+# When invoked locally (`sudo ./setup.sh`), we use the script's directory.
+if [[ -n "${BASH_SOURCE[0]:-}" ]] && [[ "${BASH_SOURCE[0]}" != "bash" ]] && [[ "${BASH_SOURCE[0]}" != "/dev/stdin" ]] && [[ -f "${BASH_SOURCE[0]}" ]]; then
+    # Local execution
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    log "Installing from local source: $SCRIPT_DIR"
+else
+    # Piped execution (curl | bash) - clone from GitHub
+    log "Cloning from GitHub..."
+    SCRIPT_DIR="/tmp/nosrat-panel-install"
+    rm -rf "$SCRIPT_DIR"
+    if ! git clone --depth 1 https://github.com/pdnczone/Nosrat-Panel.git "$SCRIPT_DIR" 2>&1 | tail -3; then
+        die "Failed to clone repository from GitHub"
+    fi
+fi
+
 mkdir -p "$INSTALL_DIR"
 
-# Copy backend and frontend
-cp -r "$SCRIPT_DIR/backend" "$INSTALL_DIR/"
-cp -r "$SCRIPT_DIR/frontend" "$INSTALL_DIR/"
-
-# If systemd/ and docs/ exist, copy them too
-[[ -d "$SCRIPT_DIR/systemd" ]] && cp -r "$SCRIPT_DIR/systemd" "$INSTALL_DIR/"
-[[ -d "$SCRIPT_DIR/docs" ]] && cp -r "$SCRIPT_DIR/docs" "$INSTALL_DIR/"
+# Copy backend, frontend, node-agent, systemd, docs
+for dir in backend frontend node-agent systemd docs; do
+    if [[ -d "$SCRIPT_DIR/$dir" ]]; then
+        cp -r "$SCRIPT_DIR/$dir" "$INSTALL_DIR/"
+        log "Copied $dir/"
+    else
+        warn "$dir/ not found in source - skipping"
+    fi
+done
 
 log "Application files copied to $INSTALL_DIR"
 
