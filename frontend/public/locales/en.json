@@ -1,0 +1,300 @@
+{
+  "app": {
+    "name": "nosrat",
+    "tagline": "Encrypted tunnel management"
+  },
+  "common": {
+    "search": "Search...",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "finish": "Finish",
+    "submit": "Submit",
+    "confirm": "Confirm",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "empty": "No data available",
+    "filter": "Filter",
+    "all": "All",
+    "refresh": "Refresh",
+    "export": "Export",
+    "import": "Import",
+    "copy": "Copy",
+    "copied": "Copied",
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "created_at": "Created at",
+    "updated_at": "Updated at",
+    "details": "Details",
+    "advanced": "Advanced",
+    "basic": "Basic",
+    "minutes": "minutes",
+    "seconds": "seconds"
+  },
+  "auth": {
+    "title": "Sign in to admin panel",
+    "username": "Username",
+    "password": "Password",
+    "login": "Sign in",
+    "login_failed": "Invalid username or password",
+    "logout_confirm": "Do you want to sign out?",
+    "session_expired": "Session expired, please sign in again"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "tunnels": "Tunnels",
+    "crypto": "Crypto",
+    "health": "Health",
+    "speed": "Speed",
+    "servers": "Servers",
+    "users": "Users",
+    "settings": "Settings",
+    "logout": "Logout",
+    "notifications": "Notifications"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "stats": {
+      "total_tunnels": "Total tunnels",
+      "running": "Running",
+      "stopped": "Stopped",
+      "errors": "Errors",
+      "traffic": "Today's traffic",
+      "uptime": "System uptime",
+      "latency": "Avg latency",
+      "throughput": "Throughput"
+    },
+    "activity": "Recent activity",
+    "tunnel_grid": "Active tunnels",
+    "no_tunnels": "No tunnels to display",
+    "quick_actions": "Quick actions",
+    "create_tunnel": "Create new tunnel",
+    "run_health": "Run health check",
+    "speed_test": "Speed test"
+  },
+  "tunnels": {
+    "title": "Tunnels",
+    "create": "Create tunnel",
+    "search_placeholder": "Search tunnels...",
+    "filter_type": "Filter by type",
+    "filter_status": "Filter by status",
+    "all_types": "All types",
+    "all_statuses": "All statuses",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "server": "Server",
+      "status": "Status",
+      "traffic": "Traffic",
+      "latency": "Latency",
+      "actions": "Actions"
+    },
+    "actions": {
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "delete": "Delete",
+      "view": "View",
+      "qrcode": "QR Code"
+    },
+    "delete_confirm": "Are you sure you want to delete this tunnel? This action is irreversible.",
+    "wizard": {
+      "step_type": "Select type",
+      "step_server": "Select server",
+      "step_form": "Configure",
+      "step_review": "Review",
+      "step_done": "Done",
+      "type_question": "Which type of tunnel do you want to create?",
+      "server_question": "On which server should the tunnel run?",
+      "review_intro": "Review and confirm the configuration below",
+      "creating": "Creating tunnel...",
+      "created": "Tunnel created successfully",
+      "types": {
+        "ipsec": "IPSec (stable, enterprise)",
+        "gre": "GRE (simple, lightweight)",
+        "ghost": "Ghost Tunnel (DPI-resistant)",
+        "vpn": "Classic VPN",
+        "wireguard": "WireGuard (modern, fast)"
+      },
+      "fields": {
+        "name": "Tunnel name",
+        "description": "Description",
+        "listen_port": "Listen port",
+        "remote_host": "Remote host",
+        "remote_port": "Remote port",
+        "psk": "Pre-shared key (PSK)",
+        "mtu": "MTU",
+        "ttl": "TTL",
+        "encryption": "Encryption algorithm",
+        "auth_method": "Auth method",
+        "auto_start": "Auto-start",
+        "advanced_options": "Advanced options"
+      }
+    },
+    "detail": {
+      "tabs": {
+        "overview": "Overview",
+        "status": "Status",
+        "logs": "Logs",
+        "crypto": "Crypto",
+        "health": "Health",
+        "speed": "Speed"
+      },
+      "info": "General information",
+      "live_status": "Live status",
+      "traffic_chart": "Traffic chart",
+      "logs_live": "Live logs",
+      "auto_refresh": "Auto refresh",
+      "not_found": "Tunnel not found"
+    }
+  },
+  "crypto": {
+    "title": "Crypto management",
+    "psk_list": "PSK keys",
+    "new_psk": "New key",
+    "rotate": "Rotate key",
+    "export": "Export key",
+    "delete_confirm": "Deleting this key will disconnect all active sessions. Continue?",
+    "fields": {
+      "label": "Label",
+      "algorithm": "Algorithm",
+      "length": "Key length",
+      "created": "Created at",
+      "expires": "Expires at",
+      "fingerprint": "Fingerprint"
+    },
+    "algorithms": {
+      "aes-256-gcm": "AES-256-GCM",
+      "chacha20-poly1305": "ChaCha20-Poly1305",
+      "aes-128-gcm": "AES-128-GCM"
+    }
+  },
+  "health": {
+    "title": "System health",
+    "tabs": {
+      "quick": "Quick",
+      "detailed": "Detailed",
+      "monitoring": "Monitoring"
+    },
+    "metrics": {
+      "cpu": "CPU",
+      "memory": "Memory",
+      "disk": "Disk",
+      "network": "Network",
+      "load": "System load",
+      "connections": "Active connections",
+      "errors": "Errors"
+    },
+    "last_check": "Last check",
+    "run_check": "Run check",
+    "interval": "Interval"
+  },
+  "speed": {
+    "title": "Speed test",
+    "tabs": {
+      "ping": "Ping",
+      "full": "Full",
+      "iperf3": "iperf3"
+    },
+    "target": "Target",
+    "target_placeholder": "e.g. 1.1.1.1 or example.com",
+    "packet_count": "Packet count",
+    "duration": "Duration (sec)",
+    "parallel": "Parallel",
+    "reverse": "Reverse",
+    "start": "Start test",
+    "running": "Running...",
+    "results": "Results",
+    "history": "History"
+  },
+  "servers": {
+    "title": "Servers",
+    "new_server": "New server",
+    "test_connection": "Test connection",
+    "fields": {
+      "name": "Name",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "auth_method": "Auth method",
+      "private_key": "Private key",
+      "password": "Password"
+    },
+    "auth_methods": {
+      "key": "SSH key",
+      "password": "Password",
+      "agent": "SSH Agent"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "new_user": "New user",
+    "fields": {
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "password": "Password",
+      "active": "Active",
+      "last_login": "Last login"
+    },
+    "roles": {
+      "admin": "Admin",
+      "operator": "Operator",
+      "viewer": "Viewer"
+    },
+    "delete_confirm": "Deleting this user revokes their access. Continue?"
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "general": "General",
+      "security": "Security",
+      "network": "Network",
+      "backup": "Backup"
+    },
+    "general": {
+      "site_name": "Site name",
+      "language": "Language",
+      "theme": "Theme",
+      "timezone": "Timezone",
+      "auto_refresh": "Auto refresh"
+    },
+    "security": {
+      "two_factor": "Two-factor auth",
+      "session_timeout": "Session timeout (minutes)",
+      "password_policy": "Password policy",
+      "audit_log": "Audit log"
+    },
+    "network": {
+      "api_listen": "API listen address",
+      "public_url": "Public URL",
+      "dns_servers": "DNS servers",
+      "mtu": "Default MTU"
+    },
+    "backup": {
+      "create": "Create backup",
+      "restore": "Restore",
+      "upload": "Upload file",
+      "last_backup": "Last backup"
+    },
+    "saved": "Settings saved"
+  },
+  "errors": {
+    "not_found": "Page not found",
+    "not_found_desc": "The page you are looking for does not exist.",
+    "back_home": "Back to dashboard",
+    "forbidden": "Forbidden",
+    "server": "Server error"
+  }
+}

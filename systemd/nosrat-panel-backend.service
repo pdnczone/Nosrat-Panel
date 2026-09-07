@@ -1,0 +1,38 @@
+[Unit]
+Description=nosrat Panel Backend (FastAPI)
+Documentation=https://github.com/pdnczone/nosrat-panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/nosrat-panel/backend
+Environment="PATH=/opt/nosrat-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="NOSRAT_WEB_ENV=production"
+ExecStart=/opt/nosrat-panel/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nosrat-panel
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/nosrat-panel /var/log/nosrat-panel
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

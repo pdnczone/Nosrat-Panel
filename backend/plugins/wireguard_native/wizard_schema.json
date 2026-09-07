@@ -1,0 +1,61 @@
+{
+  "title": "WireGuard (Native) Tunnel",
+  "description": "Configure a simple WireGuard tunnel without obfuscation",
+  "fields": [
+    {
+      "key": "server_endpoint",
+      "label": "Server Endpoint",
+      "type": "text",
+      "required": true,
+      "validation": "ipv4",
+      "placeholder": "1.2.3.4",
+      "help": "Public IP address of the WireGuard server"
+    },
+    {
+      "key": "server_port",
+      "label": "Listen Port",
+      "type": "number",
+      "required": true,
+      "default": 51820,
+      "min": 1,
+      "max": 65535,
+      "help": "UDP port for WireGuard (default: 51820)"
+    },
+    {
+      "key": "client_address",
+      "label": "Client IP Address",
+      "type": "text",
+      "required": true,
+      "validation": "ipv4",
+      "default": "10.0.0.2/24",
+      "placeholder": "10.0.0.2/24",
+      "help": "Virtual IP for this client (e.g., 10.0.0.2/24)"
+    },
+    {
+      "key": "dns_servers",
+      "label": "DNS Servers",
+      "type": "text",
+      "required": false,
+      "default": "1.1.1.1, 1.0.0.1",
+      "help": "Comma-separated DNS server IPs"
+    },
+    {
+      "key": "allowed_ips",
+      "label": "Allowed IPs",
+      "type": "text",
+      "required": true,
+      "default": "0.0.0.0/0",
+      "help": "IPs to route through tunnel (0.0.0.0/0 = all traffic)"
+    },
+    {
+      "key": "persistent_keepalive",
+      "label": "Persistent Keepalive (seconds)",
+      "type": "number",
+      "required": false,
+      "default": 25,
+      "min": 0,
+      "max": 65535,
+      "help": "Keep-alive interval (0 = disabled, 25 recommended)"
+    }
+  ]
+}

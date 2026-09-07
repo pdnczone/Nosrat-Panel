@@ -1,0 +1,17 @@
+{
+  "id": "gre_ipsec",
+  "display_name": "GRE-over-IPsec",
+  "version": "1.0.0",
+  "author": "PDNC",
+  "description": "Classic nosrat setup: GRE tunnel inside an IPsec transport-mode SA.",
+  "icon": "🛡️",
+  "category": "tunnel",
+  "min_app_version": "1.0.0",
+  "config_files": [
+    "/etc/nosrat/tunnel.yaml",
+    "/etc/nosrat/secrets/psk"
+  ],
+  "systemd_units": ["nosrat", "strongswan"],
+  "tags": ["gre", "ipsec", "transport-mode", "psk"],
+  "homepage": "https://github.com/pdnczone/nosrat"
+}

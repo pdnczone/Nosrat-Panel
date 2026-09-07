@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Backups
+*.bak
+*.backup
+*.old
+
+# Runtime
+*.pid
+*.sock
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Secrets (NEVER commit)
+secrets/
+*.pem
+*.key
+*.crt
+id_rsa*
+id_ed25519*
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+.nyc_output/
+
+# Build artifacts
+*.egg
+build/
+dist/
+target/

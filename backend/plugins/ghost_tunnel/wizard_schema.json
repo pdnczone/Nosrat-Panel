@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ghost Tunnel Wizard",
+  "type": "object",
+  "additionalProperties": true,
+  "steps": [
+    {
+      "id": "step_1",
+      "title": "Domain",
+      "description": "Optional custom domain pointing at this server.",
+      "fields": [
+        {
+          "key": "use_domain",
+          "label": "Use a custom domain?",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "key": "domain_name",
+          "label": "Domain (e.g. vpn.example.com)",
+          "type": "string",
+          "required": false
+        },
+        {
+          "key": "email",
+          "label": "Let's Encrypt email",
+          "type": "string",
+          "format": "email",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "step_2",
+      "title": "VPN Users & DNS",
+      "fields": [
+        {
+          "key": "vpn_users",
+          "label": "Number of VPN users",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 3
+        },
+        {
+          "key": "dns_server",
+          "label": "Client DNS",
+          "type": "string",
+          "default": "1.1.1.1"
+        }
+      ]
+    },
+    {
+      "id": "step_3",
+      "title": "Cloak",
+      "fields": [
+        {
+          "key": "cloak_redir",
+          "label": "Cloak redirect URL",
+          "type": "string",
+          "default": "www.bing.com"
+        },
+        {
+          "key": "path_rotation_hours",
+          "label": "Path rotation interval (hours)",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168,
+          "default": 6
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,300 @@
+{
+  "app": {
+    "name": "نصرت",
+    "tagline": "مدیریت تانل‌های رمزنگاری‌شده"
+  },
+  "common": {
+    "search": "جستجو...",
+    "loading": "در حال بارگذاری...",
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "delete": "حذف",
+    "edit": "ویرایش",
+    "create": "ساخت",
+    "add": "افزودن",
+    "back": "بازگشت",
+    "next": "بعدی",
+    "previous": "قبلی",
+    "finish": "پایان",
+    "submit": "ارسال",
+    "confirm": "تأیید",
+    "close": "بستن",
+    "yes": "بله",
+    "no": "خیر",
+    "actions": "عملیات",
+    "empty": "داده‌ای موجود نیست",
+    "filter": "فیلتر",
+    "all": "همه",
+    "refresh": "تازه‌سازی",
+    "export": "خروجی",
+    "import": "ورودی",
+    "copy": "کپی",
+    "copied": "کپی شد",
+    "name": "نام",
+    "type": "نوع",
+    "status": "وضعیت",
+    "created_at": "تاریخ ساخت",
+    "updated_at": "تاریخ بروزرسانی",
+    "details": "جزئیات",
+    "advanced": "پیشرفته",
+    "basic": "پایه",
+    "minutes": "دقیقه",
+    "seconds": "ثانیه"
+  },
+  "auth": {
+    "title": "ورود به پنل مدیریت",
+    "username": "نام کاربری",
+    "password": "گذرواژه",
+    "login": "ورود",
+    "login_failed": "نام کاربری یا گذرواژه نادرست است",
+    "logout_confirm": "آیا می‌خواهید خارج شوید؟",
+    "session_expired": "نشست شما منقضی شده، لطفاً دوباره وارد شوید"
+  },
+  "nav": {
+    "dashboard": "داشبورد",
+    "tunnels": "تانل‌ها",
+    "crypto": "رمزنگاری",
+    "health": "سلامت",
+    "speed": "سرعت",
+    "servers": "سرورها",
+    "users": "کاربران",
+    "settings": "تنظیمات",
+    "logout": "خروج",
+    "notifications": "اعلان‌ها"
+  },
+  "dashboard": {
+    "title": "داشبورد",
+    "welcome": "خوش آمدید",
+    "stats": {
+      "total_tunnels": "کل تانل‌ها",
+      "running": "در حال اجرا",
+      "stopped": "متوقف",
+      "errors": "خطاها",
+      "traffic": "ترافیک امروز",
+      "uptime": "آپتایم سیستم",
+      "latency": "میانگین تأخیر",
+      "throughput": "توان عملیاتی"
+    },
+    "activity": "فعالیت اخیر",
+    "tunnel_grid": "تانل‌های فعال",
+    "no_tunnels": "تاننی برای نمایش وجود ندارد",
+    "quick_actions": "اقدامات سریع",
+    "create_tunnel": "ساخت تانل جدید",
+    "run_health": "بررسی سلامت",
+    "speed_test": "تست سرعت"
+  },
+  "tunnels": {
+    "title": "تانل‌ها",
+    "create": "ساخت تانل",
+    "search_placeholder": "جستجو در تانل‌ها...",
+    "filter_type": "فیلتر بر اساس نوع",
+    "filter_status": "فیلتر بر اساس وضعیت",
+    "all_types": "همه انواع",
+    "all_statuses": "همه وضعیت‌ها",
+    "columns": {
+      "name": "نام",
+      "type": "نوع",
+      "server": "سرور",
+      "status": "وضعیت",
+      "traffic": "ترافیک",
+      "latency": "تأخیر",
+      "actions": "عملیات"
+    },
+    "actions": {
+      "start": "شروع",
+      "stop": "توقف",
+      "restart": "راه‌اندازی مجدد",
+      "delete": "حذف",
+      "view": "مشاهده",
+      "qrcode": "QR Code"
+    },
+    "delete_confirm": "آیا از حذف این تانل مطمئن هستید؟ این عملیات غیرقابل بازگشت است.",
+    "wizard": {
+      "step_type": "انتخاب نوع",
+      "step_server": "انتخاب سرور",
+      "step_form": "پیکربندی",
+      "step_review": "بازبینی",
+      "step_done": "پایان",
+      "type_question": "چه نوع تانلی می‌خواهید بسازید؟",
+      "server_question": "تانل روی کدام سرور اجرا شود؟",
+      "review_intro": "تنظیمات زیر را بررسی و تأیید کنید",
+      "creating": "در حال ساخت تانل...",
+      "created": "تانل با موفقیت ساخته شد",
+      "types": {
+        "ipsec": "IPSec (پایدار، سازمانی)",
+        "gre": "GRE (ساده، سبک)",
+        "ghost": "Ghost Tunnel (مقاوم در برابر DPI)",
+        "vpn": "VPN کلاسیک",
+        "wireguard": "WireGuard (مدرن، سریع)"
+      },
+      "fields": {
+        "name": "نام تانل",
+        "description": "توضیحات",
+        "listen_port": "پورت شنود",
+        "remote_host": "میزبان مقصد",
+        "remote_port": "پورت مقصد",
+        "psk": "کلید از پیش اشتراک‌گذاری شده (PSK)",
+        "mtu": "MTU",
+        "ttl": "TTL",
+        "encryption": "الگوریتم رمزنگاری",
+        "auth_method": "روش احراز هویت",
+        "auto_start": "شروع خودکار",
+        "advanced_options": "گزینه‌های پیشرفته"
+      }
+    },
+    "detail": {
+      "tabs": {
+        "overview": "نمای کلی",
+        "status": "وضعیت",
+        "logs": "لاگ‌ها",
+        "crypto": "رمزنگاری",
+        "health": "سلامت",
+        "speed": "سرعت"
+      },
+      "info": "اطلاعات کلی",
+      "live_status": "وضعیت زنده",
+      "traffic_chart": "نمودار ترافیک",
+      "logs_live": "لاگ‌های زنده",
+      "auto_refresh": "تازه‌سازی خودکار",
+      "not_found": "تانل یافت نشد"
+    }
+  },
+  "crypto": {
+    "title": "مدیریت رمزنگاری",
+    "psk_list": "کلیدهای PSK",
+    "new_psk": "کلید جدید",
+    "rotate": "تغییر کلید",
+    "export": "خروجی کلید",
+    "delete_confirm": "حذف این کلید تمام جلسات فعال را قطع می‌کند. ادامه می‌دهید؟",
+    "fields": {
+      "label": "برچسب",
+      "algorithm": "الگوریتم",
+      "length": "طول کلید",
+      "created": "تاریخ ساخت",
+      "expires": "تاریخ انقضا",
+      "fingerprint": "اثر انگشت"
+    },
+    "algorithms": {
+      "aes-256-gcm": "AES-256-GCM",
+      "chacha20-poly1305": "ChaCha20-Poly1305",
+      "aes-128-gcm": "AES-128-GCM"
+    }
+  },
+  "health": {
+    "title": "سلامت سیستم",
+    "tabs": {
+      "quick": "سریع",
+      "detailed": "تفصیلی",
+      "monitoring": "پایش"
+    },
+    "metrics": {
+      "cpu": "پردازنده",
+      "memory": "حافظه",
+      "disk": "دیسک",
+      "network": "شبکه",
+      "load": "بار سیستم",
+      "connections": "اتصالات فعال",
+      "errors": "خطاها"
+    },
+    "last_check": "آخرین بررسی",
+    "run_check": "اجرای بررسی",
+    "interval": "فاصله زمانی"
+  },
+  "speed": {
+    "title": "تست سرعت",
+    "tabs": {
+      "ping": "پینگ",
+      "full": "تست کامل",
+      "iperf3": "iperf3"
+    },
+    "target": "هدف",
+    "target_placeholder": "مثلا 1.1.1.1 یا example.com",
+    "packet_count": "تعداد بسته",
+    "duration": "مدت زمان (ثانیه)",
+    "parallel": "موازی",
+    "reverse": "معکوس",
+    "start": "شروع تست",
+    "running": "در حال اجرا...",
+    "results": "نتایج",
+    "history": "سابقه"
+  },
+  "servers": {
+    "title": "سرورها",
+    "new_server": "سرور جدید",
+    "test_connection": "تست اتصال",
+    "fields": {
+      "name": "نام",
+      "host": "میزبان",
+      "port": "پورت",
+      "username": "نام کاربری",
+      "auth_method": "روش احراز هویت",
+      "private_key": "کلید خصوصی",
+      "password": "گذرواژه"
+    },
+    "auth_methods": {
+      "key": "کلید SSH",
+      "password": "گذرواژه",
+      "agent": "SSH Agent"
+    }
+  },
+  "users": {
+    "title": "کاربران",
+    "new_user": "کاربر جدید",
+    "fields": {
+      "username": "نام کاربری",
+      "email": "ایمیل",
+      "role": "نقش",
+      "password": "گذرواژه",
+      "active": "فعال",
+      "last_login": "آخرین ورود"
+    },
+    "roles": {
+      "admin": "مدیر",
+      "operator": "اپراتور",
+      "viewer": "مشاهده‌گر"
+    },
+    "delete_confirm": "حذف این کاربر باعث قطع دسترسی او می‌شود. ادامه می‌دهید؟"
+  },
+  "settings": {
+    "title": "تنظیمات",
+    "tabs": {
+      "general": "عمومی",
+      "security": "امنیت",
+      "network": "شبکه",
+      "backup": "پشتیبان‌گیری"
+    },
+    "general": {
+      "site_name": "نام سایت",
+      "language": "زبان",
+      "theme": "تم",
+      "timezone": "منطقه زمانی",
+      "auto_refresh": "تازه‌سازی خودکار"
+    },
+    "security": {
+      "two_factor": "احراز هویت دو مرحله‌ای",
+      "session_timeout": "مدت نشست (دقیقه)",
+      "password_policy": "سیاست گذرواژه",
+      "audit_log": "لاگ ممیزی"
+    },
+    "network": {
+      "api_listen": "آدرس شنود API",
+      "public_url": "آدرس عمومی",
+      "dns_servers": "سرورهای DNS",
+      "mtu": "MTU پیش‌فرض"
+    },
+    "backup": {
+      "create": "ساخت پشتیبان",
+      "restore": "بازیابی",
+      "upload": "بارگذاری فایل",
+      "last_backup": "آخرین پشتیبان"
+    },
+    "saved": "تنظیمات ذخیره شد"
+  },
+  "errors": {
+    "not_found": "صفحه یافت نشد",
+    "not_found_desc": "صفحه‌ای که دنبال آن می‌گردید وجود ندارد.",
+    "back_home": "بازگشت به داشبورد",
+    "forbidden": "دسترسی غیرمجاز",
+    "server": "خطای سرور"
+  }
+}

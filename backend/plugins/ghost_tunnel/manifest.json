@@ -1,0 +1,17 @@
+{
+  "id": "ghost_tunnel",
+  "display_name": "Ghost Tunnel",
+  "version": "1.0.0",
+  "author": "PDNC",
+  "description": "WireGuard inside Cloak behind Nginx, with rotating URL paths.",
+  "icon": "👻",
+  "category": "tunnel",
+  "min_app_version": "1.0.0",
+  "config_files": [
+    "/etc/ghosttunnel/config.sh",
+    "/etc/wireguard/wg0.conf"
+  ],
+  "systemd_units": ["wg-quick@wg0", "cloak", "nginx"],
+  "tags": ["wireguard", "cloak", "nginx", "obfuscation"],
+  "homepage": "https://github.com/pdnczone/nosrat"
+}

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GRE-over-IPsec Wizard",
+  "type": "object",
+  "additionalProperties": true,
+  "steps": [
+    {
+      "id": "step_1",
+      "title": "Endpoint Selection",
+      "description": "Choose which side of the tunnel this server is.",
+      "fields": [
+        {
+          "key": "role",
+          "label": "Server Role",
+          "type": "string",
+          "enum": ["iran", "external"],
+          "default": "iran",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "step_2",
+      "title": "Endpoint IPs",
+      "description": "Public IPv4 addresses for both ends.",
+      "fields": [
+        {
+          "key": "local_public_ip",
+          "label": "Local Public IP",
+          "type": "string",
+          "pattern": "^(?:\\d{1,3}\\.){3}\\d{1,3}$",
+          "required": true
+        },
+        {
+          "key": "remote_public_ip",
+          "label": "Remote Public IP",
+          "type": "string",
+          "pattern": "^(?:\\d{1,3}\\.){3}\\d{1,3}$",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "step_3",
+      "title": "GRE Addressing",
+      "description": "Private /30 subnet used inside the GRE tunnel.",
+      "fields": [
+        {
+          "key": "local_gre_ip",
+          "label": "Local GRE IP/CIDR",
+          "type": "string",
+          "default": "10.200.0.1/30"
+        },
+        {
+          "key": "remote_gre_ip",
+          "label": "Remote GRE IP/CIDR",
+          "type": "string",
+          "default": "10.200.0.2/30"
+        }
+      ]
+    },
+    {
+      "id": "step_4",
+      "title": "IPsec Parameters",
+      "description": "Cryptographic settings for the IPsec SA.",
+      "fields": [
+        {
+          "key": "encryption",
+          "label": "Encryption Algorithm",
+          "type": "string",
+          "enum": ["aes256gcm16", "aes128gcm16", "chacha20poly1305"],
+          "default": "aes256gcm16"
+        },
+        {
+          "key": "dh_group",
+          "label": "Diffie-Hellman Group",
+          "type": "integer",
+          "enum": [14, 15, 16, 19, 20, 21],
+          "default": 14
+        },
+        {
+          "key": "rekey_seconds",
+          "label": "Rekey Interval (seconds)",
+          "type": "integer",
+          "minimum": 600,
+          "maximum": 86400,
+          "default": 3600
+        }
+      ]
+    },
+    {
+      "id": "step_5",
+      "title": "PSK",
+      "description": "Choose how to provision the Pre-Shared Key.",
+      "fields": [
+        {
+          "key": "psk_mode",
+          "label": "PSK Mode",
+          "type": "string",
+          "enum": ["generate_256", "generate_512", "manual"],
+          "default": "generate_256"
+        },
+        {
+          "key": "psk_value",
+          "label": "Manual PSK",
+          "type": "string",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

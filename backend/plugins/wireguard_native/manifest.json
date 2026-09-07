@@ -1,0 +1,13 @@
+{
+  "id": "wireguard_native",
+  "version": "1.0.0",
+  "name": "WireGuard (Native)",
+  "description": "Native WireGuard tunnel without obfuscation - simple and fast",
+  "icon": "🔌",
+  "category": "tunnel",
+  "entry": "plugin.py",
+  "wizard_schema": "./wizard_schema.json",
+  "dependencies": ["wireguard", "wireguard-tools"],
+  "author": "PDNC",
+  "homepage": "https://github.com/pdnczone/nosrat-panel"
+}
