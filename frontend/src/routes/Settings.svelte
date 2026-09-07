@@ -28,7 +28,20 @@
   onMount(async () => {
     try {
       const data = await SettingsAPI.get();
-      settings = { ...settings, ...data };
+      const flat = {};
+      (Array.isArray(data) ? data : []).forEach((d) => {
+        flat[d.key] = d.value;
+      });
+      const merged = { ...settings };
+      for (const section of ['general', 'security', 'network', 'backup']) {
+        const next = { ...settings[section] };
+        for (const key of Object.keys(settings[section])) {
+          const k = `${section}.${key}`;
+          if (k in flat) next[key] = flat[k];
+        }
+        merged[section] = next;
+      }
+      settings = merged;
     } finally {
       loading = false;
     }
@@ -46,6 +59,7 @@
 
   async function backup() {
     const blob = await SettingsAPI.backup();
+    settings.backup.last_backup = new Date().toISOString();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

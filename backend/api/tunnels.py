@@ -1,6 +1,7 @@
 """Tunnel CRUD + lifecycle endpoints."""
 from __future__ import annotations
 
+import io
 import json
 import logging
 from datetime import datetime
@@ -47,6 +48,13 @@ class TunnelCreate(BaseModel):
     plugin: str = Field(min_length=1, max_length=64)
     server_id: int | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+
+
+class TunnelUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    params: dict[str, Any] | None = None
+    server_id: int | None = None
 
 
 class TunnelActionResult(BaseModel):
@@ -166,6 +174,38 @@ async def get_tunnel(
     tunnel = db.get(Tunnel, tunnel_id)
     if tunnel is None:
         raise HTTPException(status_code=404, detail="tunnel not found")
+    return TunnelOut.model_validate(tunnel)
+
+
+@router.put("/{tunnel_id}", response_model=TunnelOut)
+async def update_tunnel(
+    tunnel_id: int,
+    payload: TunnelUpdate,
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TunnelOut:
+    tunnel = db.get(Tunnel, tunnel_id)
+    if tunnel is None:
+        raise HTTPException(status_code=404, detail="tunnel not found")
+    if payload.name is not None and payload.name != tunnel.name:
+        if db.query(Tunnel).filter(Tunnel.name == payload.name).first() is not None:
+            raise HTTPException(status_code=409, detail="tunnel name already exists")
+        tunnel.name = payload.name
+    if payload.params is not None:
+        tunnel.params = payload.params
+    if payload.server_id is not None:
+        tunnel.server_id = payload.server_id
+    record_audit(
+        db,
+        action="tunnel.update",
+        user_id=user.id,
+        target=tunnel.name,
+        details=payload.model_dump(exclude_none=True),
+        request=request,
+    )
+    db.commit()
+    db.refresh(tunnel)
     return TunnelOut.model_validate(tunnel)
 
 
@@ -422,3 +462,37 @@ async def tunnel_config(
     except OSError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"tunnel_id": tunnel.id, "path": tunnel.config_path, "body": body}
+
+
+@router.get("/{tunnel_id}/qrcode")
+async def tunnel_qrcode(
+    tunnel_id: int,
+    _user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    """Render the tunnel definition as a scannable PNG QR code."""
+    tunnel = db.get(Tunnel, tunnel_id)
+    if tunnel is None:
+        raise HTTPException(status_code=404, detail="tunnel not found")
+    try:
+        import qrcode
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=501,
+            detail="qrcode library is not installed (pip install 'qrcode[pil]')",
+        ) from exc
+    data = json.dumps(
+        {
+            "name": tunnel.name,
+            "type": tunnel.type,
+            "plugin": tunnel.plugin,
+            "params": tunnel.params,
+        },
+        sort_keys=True,
+    )
+    buf = io.BytesIO()
+    try:
+        qrcode.make(data).save(buf, format="PNG")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"qrcode render failed: {exc}") from exc
+    return Response(content=buf.getvalue(), media_type="image/png")

@@ -50,8 +50,9 @@
     // Initialize realtime channel when authenticated
     const unsub = auth.subscribe((a) => {
       if (a.token && a.ready) {
-        const ch = openChannel('/ws/events');
+        const ch = openChannel('/ws/events?token=' + a.token);
         ch.subscribe((msg) => {
+          if (msg?.type === 'status_snapshot') return;
           if (msg?.type === 'notification') {
             notify(msg.message, msg.level || 'info');
           }

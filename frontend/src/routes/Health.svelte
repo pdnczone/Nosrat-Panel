@@ -2,7 +2,6 @@
   import { onMount, onDestroy } from 'svelte';
   import { _ } from '../lib/i18n.js';
   import { HealthAPI } from '../lib/api.js';
-  import { wsMessages, closeChannel } from '../lib/ws.js';
   import Card from '../lib/components/Card.svelte';
   import ChartCard from '../lib/components/ChartCard.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -17,23 +16,6 @@
   let loading = $state(true);
   let monitoringInterval = $state(5);
 
-  const ws = wsMessages('/ws/health');
-  let unsub;
-
-  $effect(() => {
-    unsub = $ws.subscribe((arr) => {
-      const last = arr[arr.length - 1];
-      if (!last || last.type !== 'metrics') return;
-      const m = last.payload;
-      monitoringHistory = {
-        cpu: [...monitoringHistory.cpu, m.cpu].slice(-30),
-        mem: [...monitoringHistory.mem, m.memory].slice(-30),
-        net_rx: [...monitoringHistory.net_rx, m.net_rx].slice(-30),
-        net_tx: [...monitoringHistory.net_tx, m.net_tx].slice(-30)
-      };
-    });
-  });
-
   let timer;
   onMount(async () => {
     await loadAll();
@@ -42,8 +24,6 @@
 
   onDestroy(() => {
     if (timer) clearInterval(timer);
-    if (unsub) unsub();
-    closeChannel('/ws/health');
   });
 
   async function loadAll() {

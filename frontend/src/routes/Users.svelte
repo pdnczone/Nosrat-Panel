@@ -17,7 +17,7 @@
   let loading = $state(true);
   let createOpen = $state(false);
   let confirmDelete = $state({ open: false, id: null, name: '' });
-  let newUser = $state({ username: '', email: '', password: '', role: 'viewer', active: true });
+  let newUser = $state({ username: '', password: '', role: 'viewer', active: true });
 
   onMount(load);
 
@@ -29,16 +29,21 @@
 
   async function create() {
     try {
-      await UsersAPI.create(newUser);
+      await UsersAPI.create({
+        username: newUser.username,
+        password: newUser.password,
+        role: newUser.role,
+        is_active: newUser.active
+      });
       createOpen = false;
-      newUser = { username: '', email: '', password: '', role: 'viewer', active: true };
+      newUser = { username: '', password: '', role: 'viewer', active: true };
       toast.success($_('common.create'));
       await load();
     } catch (_) {}
   }
 
   async function toggleActive(u) {
-    await UsersAPI.update(u.id, { ...u, active: !u.active });
+    await UsersAPI.update(u.id, { is_active: !u.is_active });
     await load();
   }
 
@@ -90,20 +95,20 @@
                 </td>
                 <td class="px-4 py-3 text-slate-300">{u.email ?? '—'}</td>
                 <td class="px-4 py-3">
-                  <span class="badge {u.role === 'admin' ? 'bg-red-500/15 text-red-300 border-red-500/30 border' : u.role === 'operator' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-slate-700/40 text-slate-300'}">
+                  <span class="badge {u.role === 'admin' ? 'bg-red-500/15 text-red-300 border-red-500/30 border' : u.role === 'user' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-slate-700/40 text-slate-300'}">
                     <ShieldCheck class="w-3 h-3" />
                     {$_(`users.roles.${u.role}`)}
                   </span>
                 </td>
                 <td class="px-4 py-3">
                   <button
-                    class="w-10 h-5 rounded-full transition-colors relative {u.active ? 'bg-emerald-500' : 'bg-slate-700'}"
+                    class="w-10 h-5 rounded-full transition-colors relative {u.is_active ? 'bg-emerald-500' : 'bg-slate-700'}"
                     onclick={() => toggleActive(u)}
                   >
-                    <span class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all {u.active ? 'start-5' : 'start-0.5'}"></span>
+                    <span class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all {u.is_active ? 'start-5' : 'start-0.5'}"></span>
                   </button>
                 </td>
-                <td class="px-4 py-3 text-slate-400 text-xs">{u.last_login ?? '—'}</td>
+                <td class="px-4 py-3 text-slate-400 text-xs">{u.last_login ? new Date(u.last_login).toLocaleString() : '—'}</td>
                 <td class="px-4 py-3">
                   <button class="btn-ghost p-1.5 text-red-400" onclick={() => (confirmDelete = { open: true, id: u.id, name: u.username })}>
                     <Trash2 class="w-4 h-4" />
@@ -121,11 +126,10 @@
 <Modal bind:open={createOpen} title={$_('users.new_user')} size="sm">
   <div class="space-y-3">
     <Input label={$_('users.fields.username')} bind:value={newUser.username} required />
-    <Input label={$_('users.fields.email')} type="email" bind:value={newUser.email} />
     <Input label={$_('users.fields.password')} type="password" bind:value={newUser.password} required />
     <Select label={$_('users.fields.role')} bind:value={newUser.role} options={[
       { value: 'admin', label: $_('users.roles.admin') },
-      { value: 'operator', label: $_('users.roles.operator') },
+      { value: 'user', label: $_('users.roles.user') },
       { value: 'viewer', label: $_('users.roles.viewer') }
     ]} />
   </div>

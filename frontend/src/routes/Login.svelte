@@ -1,6 +1,6 @@
 <script>
   import { AuthAPI } from '../lib/api.js';
-  import { setAuth } from '../lib/auth.js';
+  import { setAuth, clearAuth } from '../lib/auth.js';
   import { _, locale } from '../lib/i18n.js';
   import { toast } from '../lib/toast.js';
   import { Shield, User, Lock, LogIn } from 'lucide-svelte';
@@ -17,11 +17,23 @@
     error = '';
     try {
       const res = await AuthAPI.login(username, password);
-      setAuth(res.token, res.user);
-      toast.success($_('common.loading'));
-      location.hash = '/';
+      // Backend returns { access_token, refresh_token, token_type, expires_in }
+      // We need to fetch user info separately via /auth/me
+      const token = res.access_token;
+      setAuth(token, null);  // store token; user fetched next
+      // Fetch user info now that we have a token
+      try {
+        const me = await AuthAPI.me();
+        setAuth(token, me);
+        toast.success($_('common.success') || 'خوش آمدید');
+        location.hash = '/';
+      } catch (meErr) {
+        // /me failed, but login succeeded - clear auth
+        clearAuth();
+        error = 'Login succeeded but user info unavailable';
+      }
     } catch (err) {
-      error = err.response?.data?.message || $_('auth.login_failed');
+      error = err.response?.data?.message || err.response?.data?.detail || $_('auth.login_failed');
     } finally {
       loading = false;
     }

@@ -1,5 +1,4 @@
 <script>
-  import { useNavigate } from 'svelte-routing';
   import { _ } from '../i18n.js';
   import StatusBadge from './StatusBadge.svelte';
 

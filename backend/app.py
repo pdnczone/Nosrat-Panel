@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api import auth, crypto, health, nodes, plugins, servers, settings as settings_api
-from api import speed, tunnels, users, ws
+from api import speed, stats, tunnels, users, ws
 from core.config import ensure_directories, settings
 from core.database import init_db
 from core.plugin_loader import plugin_registry
@@ -189,6 +189,7 @@ def _mount_routers(app: FastAPI) -> None:
         servers.router,
         settings_api.router,
         speed.router,
+        stats.router,
         tunnels.router,
         users.router,
         ws.router,

@@ -171,6 +171,8 @@
       "label": "Label",
       "algorithm": "Algorithm",
       "length": "Key length",
+      "key": "Key",
+      "path": "Path",
       "created": "Created at",
       "expires": "Expires at",
       "fingerprint": "Fingerprint"
@@ -265,6 +267,7 @@
     },
     "roles": {
       "admin": "Admin",
+      "user": "User",
       "operator": "Operator",
       "viewer": "Viewer"
     },

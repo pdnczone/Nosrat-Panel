@@ -22,7 +22,7 @@ api.interceptors.response.use(
 
     if (status === 401) {
       clearAuth();
-      if (location.pathname !== '/login') location.href = '/login';
+      if (location.hash !== '#/login') location.hash = '#/login';
     } else if (status === 403) {
       toast('error', message || 'دسترسی غیرمجاز');
     } else if (status >= 500) {
@@ -83,8 +83,8 @@ export const NodesAPI = {
 
 // ---------- Crypto endpoints ----------
 export const CryptoAPI = {
-  pskList: () => api.get('/crypto/psk').then((r) => r.data),
-  pskCreate: (payload) => api.post('/crypto/psk', payload).then((r) => r.data),
+  pskList: () => api.get('/crypto/psk/list').then((r) => r.data),
+  pskCreate: (payload) => api.post('/crypto/psk/generate', payload).then((r) => r.data),
   pskRotate: (id, payload) => api.post(`/crypto/psk/${id}/rotate`, payload).then((r) => r.data),
   pskDelete: (id) => api.delete(`/crypto/psk/${id}`).then((r) => r.data),
   export: (id) => api.get(`/crypto/psk/${id}/export`, { responseType: 'blob' }).then((r) => r.data)
@@ -101,8 +101,8 @@ export const HealthAPI = {
 // ---------- Speed endpoints ----------
 export const SpeedAPI = {
   ping: (target) => api.post('/speed/ping', { target }).then((r) => r.data),
-  full: (target) => api.post('/speed/full', { target }).then((r) => r.data),
-  iperf3: (target, params) => api.post('/speed/iperf3', { target, ...params }).then((r) => r.data),
+  full: (target) => api.post('/speed/test', { target, duration_sec: 10, parallel: 4 }).then((r) => r.data),
+  iperf3: (target, params = {}) => api.post('/speed/test', { target, duration_sec: params.duration || 10, parallel: params.parallel || 4 }).then((r) => r.data),
   history: (params) => api.get('/speed/history', { params }).then((r) => r.data)
 };
 
@@ -111,15 +111,18 @@ export const UsersAPI = {
   list: () => api.get('/users').then((r) => r.data),
   get: (id) => api.get(`/users/${id}`).then((r) => r.data),
   create: (payload) => api.post('/users', payload).then((r) => r.data),
-  update: (id, payload) => api.put(`/users/${id}`, payload).then((r) => r.data),
+  update: (id, payload) => api.patch(`/users/${id}`, payload).then((r) => r.data),
   delete: (id) => api.delete(`/users/${id}`).then((r) => r.data),
-  me: () => api.get('/users/me').then((r) => r.data)
+  me: () => api.get('/auth/me').then((r) => r.data)
 };
 
 // ---------- Settings endpoints ----------
 export const SettingsAPI = {
   get: () => api.get('/settings').then((r) => r.data),
-  update: (section, payload) => api.put(`/settings/${section}`, payload).then((r) => r.data),
+  update: (section, payload) =>
+    api
+      .put('/settings', { items: Object.fromEntries(Object.entries(payload).map(([k, v]) => [`${section}.${k}`, v])) })
+      .then((r) => r.data),
   backup: () => api.get('/settings/backup', { responseType: 'blob' }).then((r) => r.data),
   restore: (formData) =>
     api.post('/settings/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data)
@@ -129,7 +132,8 @@ export const SettingsAPI = {
 export const AuthAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }).then((r) => r.data),
   logout: () => api.post('/auth/logout').then((r) => r.data),
-  refresh: () => api.post('/auth/refresh').then((r) => r.data)
+  refresh: () => api.post('/auth/refresh').then((r) => r.data),
+  me: () => api.get('/auth/me').then((r) => r.data),
 };
 
 // ---------- Stats ----------

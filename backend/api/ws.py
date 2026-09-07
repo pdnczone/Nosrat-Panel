@@ -55,23 +55,16 @@ async def _authenticate_ws(websocket: WebSocket) -> dict[str, Any] | None:
 # ── /ws/status ──────────────────────────────────────────────────────────────
 
 
-@router.websocket("/ws/status")
-async def status_socket(
-    websocket: WebSocket,
-    interval: int = Query(default=2, ge=1, le=30),
-    token: str | None = Query(default=None),
-) -> None:
-    """Stream status snapshots of all tunnels at the requested cadence."""
-    claims = None
-    if token:
-        try:
-            claims = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
-        except JWTError:
-            claims = None
-    if claims is None:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
+def _decode_ws_token(token: str | None) -> dict[str, Any] | None:
+    if not token:
+        return None
+    try:
+        return jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    except JWTError:
+        return None
 
+
+async def _status_loop(websocket: WebSocket, interval: int) -> None:
     await websocket.accept()
     plugin_registry.load()
     last_ping = time.monotonic()
@@ -90,7 +83,38 @@ async def status_socket(
         return
     except Exception as exc:  # noqa: BLE001
         logger.exception("ws status error: %s", exc)
-        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        try:
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@router.websocket("/ws/status")
+async def status_socket(
+    websocket: WebSocket,
+    interval: int = Query(default=2, ge=1, le=30),
+    token: str | None = Query(default=None),
+) -> None:
+    """Stream status snapshots of all tunnels at the requested cadence."""
+    claims = _decode_ws_token(token)
+    if claims is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    await _status_loop(websocket, interval)
+
+
+@router.websocket("/ws/events")
+async def events_socket(
+    websocket: WebSocket,
+    interval: int = Query(default=2, ge=1, le=30),
+    token: str | None = Query(default=None),
+) -> None:
+    """Alias of ``/ws/status`` — identical tunnel status snapshot stream."""
+    claims = _decode_ws_token(token)
+    if claims is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    await _status_loop(websocket, interval)
 
 
 async def _collect_snapshot() -> dict[str, Any]:

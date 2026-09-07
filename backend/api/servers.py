@@ -66,14 +66,14 @@ class ServerCreate(BaseModel):
 
 
 class ServerUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     name: str | None = Field(default=None, min_length=1, max_length=128)
+    host: str | None = Field(default=None, min_length=1, max_length=255)
     ssh_port: int | None = Field(default=None, ge=1, le=65535)
     ssh_user: str | None = Field(default=None, min_length=1, max_length=64)
     ssh_key_path: str | None = Field(default=None, max_length=512)
-    ssh_private_key: str | None = Field(default=None, max_length=16384)
-    ssh_password: str | None = Field(default=None, max_length=512)
-    metadata: dict[str, Any] | None = None
+    node_name: str | None = Field(default=None, max_length=128)
+    node_location: str | None = Field(default=None, max_length=32)
 
 
 class ServerTestResult(BaseModel):
@@ -166,19 +166,51 @@ async def update_server(
             setattr(server, field, value)
 
     meta = dict(server.server_metadata or {})
-    if payload.ssh_private_key:
-        meta["ssh_private_key"] = payload.ssh_private_key
-    if payload.ssh_password:
-        meta["ssh_password"] = payload.ssh_password
-    if payload.metadata is not None:
+    private_key = getattr(payload, "ssh_private_key", None)
+    password = getattr(payload, "ssh_password", None)
+    new_metadata = getattr(payload, "metadata", None)
+    if private_key:
+        meta["ssh_private_key"] = private_key
+    if password:
+        meta["ssh_password"] = password
+    if new_metadata is not None:
         # Replace metadata only if the caller explicitly sent a dict; the
         # credentials above should still survive.
-        for k, v in payload.metadata.items():
+        for k, v in new_metadata.items():
             if k in ("ssh_private_key", "ssh_password"):
                 continue
             meta[k] = v
     server.server_metadata = meta
 
+    record_audit(
+        db,
+        action="server.update",
+        user_id=user.id,
+        target=server.name,
+        details=payload.model_dump(exclude_none=True),
+        request=request,
+    )
+    db.commit()
+    db.refresh(server)
+    return ServerOut.model_validate(server)
+
+
+@router.put("/{server_id}", response_model=ServerOut)
+async def update_server_full(
+    server_id: int,
+    payload: ServerUpdate,
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> ServerOut:
+    """Full-update endpoint (PUT): apply only the fields the caller provided."""
+    server = db.get(Server, server_id)
+    if server is None:
+        raise HTTPException(status_code=404, detail="server not found")
+    for field in ("name", "host", "ssh_port", "ssh_user", "ssh_key_path", "node_name", "node_location"):
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(server, field, value)
     record_audit(
         db,
         action="server.update",

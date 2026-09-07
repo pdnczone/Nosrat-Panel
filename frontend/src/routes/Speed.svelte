@@ -88,7 +88,7 @@
         {#each history as h, i}
           <li class="flex items-center justify-between p-3 bg-slate-950 rounded-lg border border-slate-800 text-sm">
             <span class="text-slate-400">#{history.length - i} · {h.target || target}</span>
-            <span class="font-mono text-slate-300">{h.summary || h.avg_latency || h.bitrate || JSON.stringify(h).slice(0, 60)}</span>
+            <span class="font-mono text-slate-300">{h.summary || h.target || target} · {h.latency_ms != null ? h.latency_ms + 'ms' : ''} {h.throughput_mbps != null ? '· ' + h.throughput_mbps + 'Mbps' : ''}</span>
           </li>
         {/each}
       </ul>

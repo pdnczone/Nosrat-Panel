@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+import psutil
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -21,6 +24,9 @@ from db.models import User
 
 logger = logging.getLogger("nosrat.api.health")
 router = APIRouter(prefix="/api/health", tags=["health"])
+
+# Prime psutil's CPU counter so the first ``interval=None`` read is meaningful.
+psutil.cpu_percent(interval=None)
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────
@@ -59,6 +65,52 @@ class MonitorResponse(BaseModel):
     started_at: datetime
     finished_at: datetime
     remote_ip: str | None
+
+
+class QuickHealth(BaseModel):
+    cpu: float
+    memory: float
+    disk: float
+    connections: int
+
+
+class DetailedMemory(BaseModel):
+    total_mb: int
+    available_mb: int
+    used_mb: int
+
+
+class DetailedDisk(BaseModel):
+    total_gb: float
+    used_gb: float
+    free_gb: float
+
+
+class DetailedLoad(BaseModel):
+    m1: float
+    m5: float
+    m15: float
+
+
+class DetailedHealth(BaseModel):
+    cpu_per_core: list[float]
+    memory: DetailedMemory
+    disk: DetailedDisk
+    load_avg: DetailedLoad
+    uptime_seconds: float
+    boot_time: float
+
+
+class MonitoringSample(BaseModel):
+    cpu: float
+    memory: float
+    net_rx: float
+    net_tx: float
+    timestamp: datetime
+
+
+class MonitoringResponse(BaseModel):
+    items: list[MonitoringSample]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -227,4 +279,83 @@ async def monitor(
         started_at=started,
         finished_at=datetime.utcnow(),
         remote_ip=remote_ip,
+    )
+
+
+# ── System resource endpoints ──────────────────────────────────────────────
+
+
+@router.get("/quick", response_model=QuickHealth)
+async def quick_health(
+    _user: Annotated[User, Depends(get_current_user)],
+) -> QuickHealth:
+    """Lightweight host CPU / memory / disk / connection gauges."""
+    cpu = psutil.cpu_percent(interval=None)
+    memory = psutil.virtual_memory().percent
+    disk = psutil.disk_usage("/").percent
+    try:
+        connections = len(psutil.net_connections(kind="tcp"))
+    except (PermissionError, OSError) as exc:
+        logger.warning("could not count tcp connections: %s", exc)
+        connections = 0
+    return QuickHealth(cpu=cpu, memory=memory, disk=disk, connections=connections)
+
+
+@router.get("/detailed", response_model=DetailedHealth)
+async def detailed_health(
+    _user: Annotated[User, Depends(get_current_user)],
+) -> DetailedHealth:
+    """Per-core CPU, memory/disk breakdowns, load averages and uptime."""
+    vm = psutil.virtual_memory()
+    du = psutil.disk_usage("/")
+    per_core = psutil.cpu_percent(interval=None, percpu=True)
+    boot_time = psutil.boot_time()
+    try:
+        load = os.getloadavg()
+        load_avg = DetailedLoad(m1=load[0], m5=load[1], m15=load[2])
+    except OSError:
+        load_avg = DetailedLoad(m1=0.0, m5=0.0, m15=0.0)
+    return DetailedHealth(
+        cpu_per_core=per_core,
+        memory=DetailedMemory(
+            total_mb=int(vm.total // (1024 * 1024)),
+            available_mb=int(vm.available // (1024 * 1024)),
+            used_mb=int(vm.used // (1024 * 1024)),
+        ),
+        disk=DetailedDisk(
+            total_gb=round(du.total / (1024 ** 3), 2),
+            used_gb=round(du.used / (1024 ** 3), 2),
+            free_gb=round(du.free / (1024 ** 3), 2),
+        ),
+        load_avg=load_avg,
+        uptime_seconds=round(time.time() - boot_time, 1),
+        boot_time=boot_time,
+    )
+
+
+@router.get("/monitoring", response_model=MonitoringResponse)
+async def monitoring(
+    _user: Annotated[User, Depends(get_current_user)],
+    limit: int = Query(default=10, ge=1, le=300),
+) -> MonitoringResponse:
+    """A single current resource sample (network rate over a 0.5s window)."""
+    net1 = psutil.net_io_counters()
+    t1 = time.monotonic()
+    cpu = psutil.cpu_percent(interval=None)
+    await asyncio.sleep(0.5)
+    net2 = psutil.net_io_counters()
+    memory = psutil.virtual_memory().percent
+    dt = max(time.monotonic() - t1, 0.5)
+    net_rx = (net2.bytes_recv - net1.bytes_recv) / dt / 1024.0
+    net_tx = (net2.bytes_sent - net1.bytes_sent) / dt / 1024.0
+    return MonitoringResponse(
+        items=[
+            MonitoringSample(
+                cpu=cpu,
+                memory=memory,
+                net_rx=round(net_rx, 2),
+                net_tx=round(net_tx, 2),
+                timestamp=datetime.utcnow(),
+            )
+        ][:limit]
     )

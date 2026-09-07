@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import aiofiles
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
@@ -149,6 +149,53 @@ async def list_psks(
             )
         )
     return entries
+
+
+@router.delete("/psk/{psk_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response, response_model=None)
+async def delete_psk(
+    psk_id: str,
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    """Delete a stored PSK file by id (stem or exact file name)."""
+    base = _psk_dir()
+    target = base / psk_id
+    if not target.is_file():
+        target = base / f"{psk_id}.txt"
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="psk not found")
+    try:
+        target.unlink()
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"could not delete psk: {exc}") from exc
+    record_audit(
+        db,
+        action="crypto.psk.delete",
+        user_id=user.id,
+        target=target.name,
+        request=request,
+    )
+    db.commit()
+    return None
+
+
+@router.get("/psk/{psk_id}/export")
+async def export_psk(
+    psk_id: str,
+    _user: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    """Return the raw PSK text for download / copy-out."""
+    base = _psk_dir()
+    target = base / psk_id
+    if not target.is_file():
+        target = base / f"{psk_id}.txt"
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="psk not found")
+    value = await _read_psk(target)
+    if value is None:
+        raise HTTPException(status_code=404, detail="psk not found")
+    return Response(content=value, media_type="text/plain")
 
 
 @router.post("/psk/{psk_id}/rotate", response_model=PskRotateResponse)

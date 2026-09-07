@@ -1,9 +1,9 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { _ } from '../lib/i18n.js';
-  import { auth } from '../lib/auth.js';
+  import { auth, getToken } from '../lib/auth.js';
   import { StatsAPI, TunnelsAPI } from '../lib/api.js';
-  import { wsMessages } from '../lib/ws.js';
+  import { openChannel } from '../lib/ws.js';
   import Card from '../lib/components/Card.svelte';
   import ChartCard from '../lib/components/ChartCard.svelte';
   import TunnelCard from '../lib/components/TunnelCard.svelte';
@@ -19,21 +19,32 @@
   let loading = $state(true);
   const s = $derived(stats || {});
 
-  const wsEvents = wsMessages('/ws/events');
+  let wsMessages = $state([]);
   let realtimeTraffic = $state({ rx: 0, tx: 0, history: [] });
 
   $effect(() => {
-    const last = $wsEvents[$wsEvents.length - 1];
+    const last = wsMessages[wsMessages.length - 1];
     if (!last) return;
     if (last.type === 'traffic') {
       realtimeTraffic = last.payload;
       realtimeTraffic.history = [...realtimeTraffic.history, last.payload].slice(-30);
     } else if (last.type === 'tunnel_update') {
       tunnels = tunnels.map((t) => (t.id === last.payload.id ? { ...t, ...last.payload } : t));
+    } else if (last.type === 'status_snapshot') {
+      const list = Array.isArray(last.tunnels) ? last.tunnels : last.payload?.tunnels;
+      if (list) tunnels = list;
     }
   });
 
+  let wsUnsub;
   onMount(async () => {
+    const token = getToken();
+    if (token) {
+      const ch = openChannel('/ws/events?token=' + token);
+      wsUnsub = ch.subscribe((msg) => {
+        wsMessages = [...wsMessages, msg].slice(-200);
+      });
+    }
     try {
       const [s, a, t] = await Promise.allSettled([
         StatsAPI.dashboard(),
@@ -46,6 +57,10 @@
     } finally {
       loading = false;
     }
+  });
+
+  onDestroy(() => {
+    if (wsUnsub) wsUnsub();
   });
 
   const trafficChart = $derived({
