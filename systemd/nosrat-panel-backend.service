@@ -1,6 +1,6 @@
 [Unit]
 Description=nosrat Panel Backend (FastAPI)
-Documentation=https://github.com/pdnczone/nosrat-panel
+Documentation=https://github.com/pdnczone/Nosrat-Panel
 After=network-online.target
 Wants=network-online.target
 
@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/opt/nosrat-panel/backend
-Environment="PATH=/opt/nosrat-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/opt/nosrat-panel/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="NOSRAT_WEB_ENV=production"
 ExecStart=/opt/nosrat-panel/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
@@ -17,15 +17,19 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=nosrat-panel
 
-# Hardening
+# Hardening.
+# NOTE: the backend drives the GRE/IPsec tunnel via `nosrat` (the Go CLI),
+# which must create kernel GRE interfaces and manage IPsec/routing. It runs
+# as root, so it keeps the default capability bounding set (NET_ADMIN/NET_RAW
+# included). Do NOT add an empty CapabilityBoundingSet= here — systemd
+# interprets that as "drop ALL capabilities" and tunnel operations fail
+# with EPERM. ProtectSystem=strict is kept for the rest of the filesystem;
+# ReadWritePaths opens exactly the dirs the plugins write to.
 RuntimeDirectory=strongswan
-NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/opt/nosrat-panel /var/log/nosrat-panel /etc/nosrat /etc/strongswan /etc/wireguard /etc/ghosttunnel /etc/ghost_tunnel /etc/nginx /var/lib/strongswan /var/www/html/current
-CapabilityBoundingSet=
-AmbientCapabilities=
+ReadWritePaths=/opt/nosrat-panel /var/log/nosrat-panel /etc/nosrat /etc/swanctl /etc/strongswan /etc/wireguard /etc/ghosttunnel /etc/ghost_tunnel /etc/nginx /var/lib/strongswan /var/www/html/current
 RestrictSUIDSGID=true
 RestrictNamespaces=true
 RestrictRealtime=true
