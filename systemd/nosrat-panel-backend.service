@@ -18,11 +18,12 @@ StandardError=journal
 SyslogIdentifier=nosrat-panel
 
 # Hardening
+RuntimeDirectory=strongswan
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/opt/nosrat-panel /var/log/nosrat-panel
+ReadWritePaths=/opt/nosrat-panel /var/log/nosrat-panel /etc/nosrat /etc/strongswan /etc/wireguard /etc/ghosttunnel /etc/ghost_tunnel /etc/nginx /var/lib/strongswan /var/www/html/current
 CapabilityBoundingSet=
 AmbientCapabilities=
 RestrictSUIDSGID=true

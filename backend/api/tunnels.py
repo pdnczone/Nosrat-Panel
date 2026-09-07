@@ -137,8 +137,11 @@ async def create_tunnel(
     plugin = _get_plugin(payload.plugin)
     try:
         result = await plugin.create(payload.params)
-    except (ValueError, CommandError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (ValueError, KeyError, CommandError) as exc:
+        msg = str(exc)
+        if isinstance(exc, KeyError):
+            msg = f"missing required field: {exc.args[0]}"
+        raise HTTPException(status_code=400, detail=msg) from exc
 
     tunnel = Tunnel(
         server_id=payload.server_id,

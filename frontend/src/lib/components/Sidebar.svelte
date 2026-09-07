@@ -60,7 +60,7 @@
     </div>
     {#if !collapsed}
       <div class="min-w-0">
-        <h1 class="font-bold text-slate-100 truncate">nosrat</h1>
+        <h1 class="font-extrabold text-slate-100 truncate tracking-widest text-lg">NOSRAT</h1>
         <p class="text-xs text-slate-500 truncate">WebUI</p>
       </div>
     {/if}

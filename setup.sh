@@ -159,7 +159,7 @@ set -e
 
 # ── Step 7: Initialize database and start ─────────────────────────────────
 header "Step 7/7: Initializing and starting"
-mkdir -p /var/log/nosrat-panel
+mkdir -p /var/log/nosrat-panel /etc/nosrat /etc/nosrat/secrets /etc/strongswan /etc/wireguard /etc/ghosttunnel /etc/ghost_tunnel /etc/nginx /var/lib/strongswan /run/strongswan /var/www/html/current
 set +e
 
 # Start the service

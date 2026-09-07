@@ -31,8 +31,8 @@ class SettingOut(BaseModel):
     updated_at: datetime
 
 
-class SettingsPayload(RootModel[dict[str, Any]]):
-    """Whole-bulk update — body is a flat ``{key: value}`` object."""
+class SettingsPayload(RootModel[Any]):
+    """Value for a single key — any JSON-serializable value."""
 
 
 class SettingsUpdate(BaseModel):
