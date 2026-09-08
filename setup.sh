@@ -21,59 +21,14 @@ header() {
     echo ""
 }
 
-# Install Node.js v20 via NVM (fallback when NodeSource fails)
-install_node_via_nvm() {
-    log "Installing Node.js v20 via NVM..."
-    # Install NVM if not present
-    if [[ ! -d "/root/.nvm" ]] && [[ ! -d "$HOME/.nvm" ]]; then
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash - 2>&1 | tail -3
-    fi
-    # Source NVM (try both common locations)
-    export NVM_DIR=""
-    if [[ -s "/root/.nvm/nvm.sh" ]]; then
-        NVM_DIR="/root/.nvm"
-    elif [[ -s "$HOME/.nvm/nvm.sh" ]]; then
-        NVM_DIR="$HOME/.nvm"
-    fi
-    if [[ -z "$NVM_DIR" ]]; then
-        warn "NVM install failed — trying standalone Node.js binary"
-        install_node_standalone
-        return
-    fi
-    \. "$NVM_DIR/nvm.sh"
-    # Install and use Node 20
-    nvm install 20
-    nvm alias default 20
-    # Symlink to /usr/local/bin for system-wide access
-    NODE_BIN=$(nvm which 20 2>/dev/null | head -1)
-    if [[ -n "$NODE_BIN" ]]; then
-        ln -sf "$NODE_BIN" /usr/local/bin/node
-        ln -sf "$(dirname "$NODE_BIN")/npm" /usr/local/bin/npm
-        ln -sf "$(dirname "$NODE_BIN")/npx" /usr/local/bin/npx
-    fi
-    log "Node.js $(node -v) installed via NVM"
-}
-
-# Last resort: download standalone Node.js binary
-install_node_standalone() {
-    log "Downloading standalone Node.js v20 binary..."
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64)  NODE_ARCH="x64" ;;
-        aarch64) NODE_ARCH="arm64" ;;
-        armv7l)  NODE_ARCH="armv7l" ;;
-        *) die "Unsupported architecture: $ARCH" ;;
-    esac
-    NODE_URL="https://nodejs.org/dist/v20.19.0/node-v20.19.0-linux-${NODE_ARCH}.tar.xz"
-    curl -fsSL "$NODE_URL" | tar -xJ -C /usr/local --strip-components=1
-    log "Node.js $(node -v) installed standalone to /usr/local"
-}
-
 # ── Constants ─────────────────────────────────────────────────────────────
 INSTALL_DIR="/opt/nosrat-panel"
 VENV_DIR="$INSTALL_DIR/venv"
 SERVICE_FILE="/etc/systemd/system/nosrat-panel-backend.service"
 NGINX_CONF="/etc/nginx/sites-available/nosrat-panel"
+REQUIRED_NODE_MAJOR=20
+REQUIRED_NODE_MINOR=19
+REQUIRED_NODE_VERSION="${REQUIRED_NODE_MAJOR}.${REQUIRED_NODE_MINOR}.0"
 
 # ── Root check ────────────────────────────────────────────────────────────
 [[ $EUID -eq 0 ]] || die "Run as root: sudo bash setup.sh"
@@ -92,6 +47,141 @@ echo -e "${BOLD}NOSRAT WebUI Panel Installer${NC}"
 echo -e "${YELLOW}Secure, DPI-Resistant Multi-Server Tunnel Management${NC}"
 echo ""
 
+# ── NVM Detection & Setup ─────────────────────────────────────────────────
+# Try to find and load NVM from common locations
+load_nvm() {
+    local nvm_dirs=("/root/.nvm" "$HOME/.nvm" "/usr/local/nvm" "/opt/nvm")
+    for dir in "${nvm_dirs[@]}"; do
+        if [[ -s "$dir/nvm.sh" ]]; then
+            export NVM_DIR="$dir"
+            # shellcheck disable=SC1090
+            . "$NVM_DIR/nvm.sh"
+            log "NVM loaded from $NVM_DIR"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# ── Node.js Version Check ─────────────────────────────────────────────────
+# Returns 0 if Node.js >= REQUIRED_NODE_VERSION is available
+check_node_version() {
+    if ! command -v node &>/dev/null; then
+        return 1
+    fi
+    local version
+    version=$(node -v 2>/dev/null | sed 's/^v//')
+    if [[ -z "$version" ]]; then
+        return 1
+    fi
+    local major minor patch
+    IFS='.' read -r major minor patch <<< "$version"
+    if [[ "$major" -gt "$REQUIRED_NODE_MAJOR" ]] || \
+       [[ "$major" -eq "$REQUIRED_NODE_MAJOR" && "$minor" -ge "$REQUIRED_NODE_MINOR" ]]; then
+        log "Node.js v$version detected (>= v$REQUIRED_NODE_VERSION required) ✓"
+        return 0
+    fi
+    warn "Node.js v$version detected — need v$REQUIRED_NODE_VERSION+"
+    return 1
+}
+
+# ── Install Node.js via NodeSource (apt) ──────────────────────────────────
+install_node_apt() {
+    log "Installing Node.js v20 from NodeSource repository..."
+    apt-get update -qq
+    if curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3; then
+        apt-get update -qq
+        apt-get install -y --no-install-recommends nodejs
+        log "Node.js $(node -v) installed via apt"
+        return 0
+    else
+        warn "NodeSource setup failed"
+        return 1
+    fi
+}
+
+# ── Install Node.js via NVM ───────────────────────────────────────────────
+install_node_nvm() {
+    log "Installing Node.js v20 via NVM..."
+    # Install NVM if not present
+    if [[ ! -d "/root/.nvm" ]] && [[ ! -d "$HOME/.nvm" ]]; then
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash - 2>&1 | tail -3
+    fi
+    load_nvm || { warn "NVM load failed"; return 1; }
+    
+    nvm install 20
+    nvm alias default 20
+    nvm use 20
+    
+    # Symlink to /usr/local/bin for system-wide access
+    local node_bin
+    node_bin=$(nvm which 20 2>/dev/null | head -1)
+    if [[ -n "$node_bin" ]]; then
+        ln -sf "$node_bin" /usr/local/bin/node
+        ln -sf "$(dirname "$node_bin")/npm" /usr/local/bin/npm
+        ln -sf "$(dirname "$node_bin")/npx" /usr/local/bin/npx
+    fi
+    log "Node.js $(node -v) installed via NVM"
+    return 0
+}
+
+# ── Install Node.js standalone binary (last resort) ───────────────────────
+install_node_standalone() {
+    log "Downloading standalone Node.js v${REQUIRED_NODE_VERSION} binary..."
+    local arch node_arch
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64)  node_arch="x64" ;;
+        aarch64) node_arch="arm64" ;;
+        armv7l)  node_arch="armv7l" ;;
+        *) die "Unsupported architecture: $arch" ;;
+    esac
+    local node_url="https://nodejs.org/dist/v${REQUIRED_NODE_VERSION}/node-v${REQUIRED_NODE_VERSION}-linux-${node_arch}.tar.xz"
+    curl -fsSL "$node_url" | tar -xJ -C /usr/local --strip-components=1
+    log "Node.js $(node -v) installed standalone to /usr/local"
+    return 0
+}
+
+# ── Ensure Node.js >= 20.19.0 ─────────────────────────────────────────────
+ensure_node() {
+    # First, try to load NVM if available
+    load_nvm
+    
+    # Check if we already have a valid Node.js
+    if check_node_version; then
+        # Verify npm is also available
+        if command -v npm &>/dev/null; then
+            log "Using existing Node.js $(node -v) with npm $(npm -v)"
+            return 0
+        else
+            warn "Node.js found but npm missing"
+        fi
+    fi
+    
+    # No valid Node.js found - need to install
+    warn "No suitable Node.js found. Installing Node.js v20..."
+    
+    # Try apt (NodeSource) first on Debian/Ubuntu
+    if [[ "$PKG_MGR" == "apt" ]]; then
+        if install_node_apt; then
+            return 0
+        fi
+        warn "apt install failed, trying NVM..."
+    fi
+    
+    # Try NVM
+    if install_node_nvm; then
+        return 0
+    fi
+    
+    # Last resort: standalone binary
+    if install_node_standalone; then
+        return 0
+    fi
+    
+    die "All Node.js installation methods failed"
+}
+
 # ── Step 1: Detect package manager ────────────────────────────────────────
 header "Step 1/7: Detecting system"
 if command -v apt-get &>/dev/null; then
@@ -107,80 +197,47 @@ else
     die "No supported package manager found (apt/dnf/yum)"
 fi
 
-# ── Step 2: Install dependencies ──────────────────────────────────────────
+# ── Step 2: Install system dependencies ──────────────────────────────────
 header "Step 2/7: Installing system dependencies"
 export DEBIAN_FRONTEND=noninteractive
 
-# Check Node.js version early
-NODE_VER=0
-if command -v node &>/dev/null; then
-    NODE_VER=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-    if [[ "$NODE_VER" -lt 20 ]]; then
-        warn "Current Node.js v$(node -v | cut -d'v' -f2) detected — frontend requires v20+"
-    fi
-fi
-
 if [[ "$PKG_MGR" == "apt" ]]; then
     apt-get update -qq
-
-    # ── Remove old Node.js to prevent held/broken package conflicts ──
-    if [[ "$NODE_VER" -lt 20 ]] && [[ "$NODE_VER" -gt 0 ]]; then
-        log "Removing old Node.js $NODE_VER to avoid package conflicts..."
-        # Unhold if held
-        apt-mark unhold nodejs 2>/dev/null || true
-        # Remove old node and npm
-        apt-get remove -y --purge nodejs npm node-* 2>/dev/null || true
-        apt-get autoremove -y 2>/dev/null || true
-        # Fix any broken state left behind
-        dpkg --configure -a 2>/dev/null || true
-        apt-get -f install -y 2>/dev/null || true
-        # Clean up any stale NodeSource sources
-        rm -f /etc/apt/sources.list.d/nodesource.list 2>/dev/null || true
-        rm -f /etc/apt/sources.list.d/nodesource.list.gpg 2>/dev/null || true
-        apt-get update -qq
-        NODE_VER=0
-    fi
-
-    # ── Install Node.js v20 from NodeSource ──
-    if [[ "$NODE_VER" -lt 20 ]]; then
-        log "Adding NodeSource repository for Node.js v20..."
-        if curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3; then
-            log "NodeSource repo added successfully"
-        else
-            warn "NodeSource setup failed — trying NVM fallback"
-            install_node_via_nvm
-        fi
-    fi
-
-    # ── Aggressively fix any broken/held packages BEFORE final install ──
+    
+    # First, ensure we have Node.js >= 20.19.0
+    # This will use existing NVM Node.js if valid, otherwise install
+    ensure_node
+    
+    # Repair any broken package state
     log "Repairing package state..."
     apt-mark unhold nodejs npm 2>/dev/null || true
     dpkg --configure -a 2>/dev/null || true
     apt-get -f install -y 2>/dev/null || true
-    apt-get install -f -y 2>/dev/null || true
     apt-get update -qq
-
-    # ── Install all system dependencies ──
+    
+    # Install system dependencies
+    # NOTE: nodejs and npm are intentionally omitted if we already have valid Node.js
+    log "Installing system dependencies (python3, nginx, certbot, git, etc.)..."
     apt-get install -y --no-install-recommends \
-        python3 python3-pip python3-venv nodejs npm \
+        python3 python3-pip python3-venv \
         nginx certbot python3-certbot-nginx \
         git curl jq openssl 2>&1 | tail -5
-
-    # Verify Node.js version
-    if command -v node &>/dev/null; then
-        FINAL_NODE=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$FINAL_NODE" -lt 20 ]]; then
-            warn "Node.js still v$(node -v | cut -d'v' -f2) — falling back to NVM"
-            install_node_via_nvm
-        fi
+    
+    # Verify Node.js is still working
+    if ! check_node_version; then
+        warn "Node.js verification failed after apt install"
+        ensure_node
     fi
-
+    
 elif [[ "$PKG_MGR" == "dnf" || "$PKG_MGR" == "yum" ]]; then
-    $PKG_MGR install -y python3 python3-pip nodejs npm \
+    # On RHEL-based, install nodejs/npm via package manager
+    ensure_node
+    $PKG_MGR install -y python3 python3-pip \
         nginx certbot python3-certbot-nginx \
         git curl jq openssl 2>&1 | tail -5
 fi
-log "Dependencies installed (Node.js $(node -v 2>/dev/null || echo 'N/A'))"
+
+log "Dependencies installed (Node.js $(node -v 2>/dev/null || echo 'N/A'), npm $(npm -v 2>/dev/null || echo 'N/A'))"
 
 # ── Step 3: Copy application files ────────────────────────────────────────
 header "Step 3/7: Installing nosrat-panel"
@@ -230,6 +287,17 @@ log "Python dependencies installed"
 # ── Step 5: Build frontend ────────────────────────────────────────────────
 header "Step 5/7: Building frontend"
 cd "$INSTALL_DIR/frontend"
+
+# Ensure NVM is loaded for npm
+load_nvm
+
+# Verify Node.js and npm are available
+log "Verifying Node.js and npm..."
+node -v
+npm -v
+command -v node
+command -v npm
+
 # Disable set -e for this section so individual failures don't abort install
 set +e
 log "Running npm install (this may take a few minutes)..."
