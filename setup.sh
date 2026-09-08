@@ -152,6 +152,14 @@ if [[ "$PKG_MGR" == "apt" ]]; then
         fi
     fi
 
+    # ── Aggressively fix any broken/held packages BEFORE final install ──
+    log "Repairing package state..."
+    apt-mark unhold nodejs npm 2>/dev/null || true
+    dpkg --configure -a 2>/dev/null || true
+    apt-get -f install -y 2>/dev/null || true
+    apt-get install -f -y 2>/dev/null || true
+    apt-get update -qq
+
     # ── Install all system dependencies ──
     apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv nodejs npm \
