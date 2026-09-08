@@ -36,6 +36,7 @@ def _ensure_admin_user() -> None:
                     is_active=True,
                 )
             )
+        db.commit()
 
 
 def test_login_bad_credentials(client: TestClient) -> None:

@@ -28,21 +28,27 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: datetime | None
+    quota_gb: float | None
+    expiry_at: datetime | None
 
 
 class UserCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.\-]+$")
     password: str = Field(min_length=8, max_length=256)
-    role: str = Field(default="user", pattern=r"^(admin|user|viewer)$")
+    role: str = Field(default="user", pattern=r"^(admin|user)$")
     is_active: bool = True
+    quota_gb: float | None = Field(default=None, ge=0)
+    expiry_at: datetime | None = Field(default=None)
 
 
 class UserUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     password: str | None = Field(default=None, min_length=8, max_length=256)
-    role: str | None = Field(default=None, pattern=r"^(admin|user|viewer)$")
+    role: str | None = Field(default=None, pattern=r"^(admin|user)$")
     is_active: bool | None = None
+    quota_gb: float | None = Field(default=None, ge=0)
+    expiry_at: datetime | None = Field(default=None)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
@@ -86,6 +92,8 @@ async def create_user(
         password_hash=hash_password(payload.password),
         role=payload.role,
         is_active=payload.is_active,
+        quota_gb=payload.quota_gb,
+        expiry_at=payload.expiry_at,
     )
     db.add(user)
     db.flush()
@@ -119,6 +127,10 @@ async def update_user(
         user.role = payload.role
     if payload.is_active is not None:
         user.is_active = payload.is_active
+    if payload.quota_gb is not None:
+        user.quota_gb = payload.quota_gb
+    if payload.expiry_at is not None:
+        user.expiry_at = payload.expiry_at
 
     record_audit(
         db,

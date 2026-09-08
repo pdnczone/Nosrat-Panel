@@ -17,7 +17,7 @@
   let loading = $state(true);
   let createOpen = $state(false);
   let confirmDelete = $state({ open: false, id: null, name: '' });
-  let newUser = $state({ username: '', password: '', role: 'viewer', active: true });
+  let newUser = $state({ username: '', password: '', role: 'user', active: true, quota_gb: '', expiry_at: '' });
 
   onMount(load);
 
@@ -29,17 +29,22 @@
 
   async function create() {
     try {
-      await UsersAPI.create({
+      const payload = {
         username: newUser.username,
         password: newUser.password,
         role: newUser.role,
-        is_active: newUser.active
-      });
+        is_active: newUser.active,
+      };
+      if (newUser.quota_gb) payload.quota_gb = Number(newUser.quota_gb);
+      if (newUser.expiry_at) payload.expiry_at = newUser.expiry_at;
+      await UsersAPI.create(payload);
       createOpen = false;
-      newUser = { username: '', password: '', role: 'viewer', active: true };
+      newUser = { username: '', password: '', role: 'user', active: true, quota_gb: '', expiry_at: '' };
       toast.success($_('common.create'));
       await load();
-    } catch (_) {}
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e.message);
+    }
   }
 
   async function toggleActive(u) {
@@ -50,6 +55,15 @@
   async function remove() {
     await UsersAPI.delete(confirmDelete.id);
     users = users.filter((u) => u.id !== confirmDelete.id);
+  }
+
+  function fmtExpiry(val) {
+    if (!val) return '—';
+    return new Date(val).toLocaleDateString('fa-IR');
+  }
+  function fmtQuota(val) {
+    if (val == null) return 'نامحدود';
+    return `${val} GB`;
   }
 </script>
 
@@ -76,11 +90,12 @@
         <table class="w-full text-sm">
           <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase">
             <tr>
-              <th class="px-4 py-3 text-start font-medium">{$_('users.fields.username')}</th>
-              <th class="px-4 py-3 text-start font-medium">{$_('users.fields.email')}</th>
-              <th class="px-4 py-3 text-start font-medium">{$_('users.fields.role')}</th>
-              <th class="px-4 py-3 text-start font-medium">{$_('users.fields.active')}</th>
-              <th class="px-4 py-3 text-start font-medium">{$_('users.fields.last_login')}</th>
+              <th class="px-4 py-3 text-start font-medium">نام کاربری</th>
+              <th class="px-4 py-3 text-start font-medium">نقش</th>
+              <th class="px-4 py-3 text-start font-medium">وضعیت</th>
+              <th class="px-4 py-3 text-start font-medium">سقف حجم</th>
+              <th class="px-4 py-3 text-start font-medium">تاریخ انقضا</th>
+              <th class="px-4 py-3 text-start font-medium">آخرین ورود</th>
               <th class="px-4 py-3 text-start font-medium">{$_('common.actions')}</th>
             </tr>
           </thead>
@@ -93,11 +108,10 @@
                     <span class="text-slate-200">{u.username}</span>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-slate-300">{u.email ?? '—'}</td>
                 <td class="px-4 py-3">
-                  <span class="badge {u.role === 'admin' ? 'bg-red-500/15 text-red-300 border-red-500/30 border' : u.role === 'user' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-slate-700/40 text-slate-300'}">
+                  <span class="badge {u.role === 'admin' ? 'bg-red-500/15 text-red-300 border-red-500/30 border' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">
                     <ShieldCheck class="w-3 h-3" />
-                    {$_(`users.roles.${u.role}`)}
+                    {u.role === 'admin' ? 'ادمین' : 'کاربر'}
                   </span>
                 </td>
                 <td class="px-4 py-3">
@@ -108,6 +122,8 @@
                     <span class="absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all {u.is_active ? 'start-5' : 'start-0.5'}"></span>
                   </button>
                 </td>
+                <td class="px-4 py-3 text-slate-300 text-xs">{fmtQuota(u.quota_gb)}</td>
+                <td class="px-4 py-3 text-slate-300 text-xs">{fmtExpiry(u.expiry_at)}</td>
                 <td class="px-4 py-3 text-slate-400 text-xs">{u.last_login ? new Date(u.last_login).toLocaleString() : '—'}</td>
                 <td class="px-4 py-3">
                   <button class="btn-ghost p-1.5 text-red-400" onclick={() => (confirmDelete = { open: true, id: u.id, name: u.username })}>
@@ -125,13 +141,14 @@
 
 <Modal bind:open={createOpen} title={$_('users.new_user')} size="sm">
   <div class="space-y-3">
-    <Input label={$_('users.fields.username')} bind:value={newUser.username} required />
-    <Input label={$_('users.fields.password')} type="password" bind:value={newUser.password} required />
-    <Select label={$_('users.fields.role')} bind:value={newUser.role} options={[
-      { value: 'admin', label: $_('users.roles.admin') },
-      { value: 'user', label: $_('users.roles.user') },
-      { value: 'viewer', label: $_('users.roles.viewer') }
+    <Input label="نام کاربری" bind:value={newUser.username} required />
+    <Input label="رمز عبور" type="password" bind:value={newUser.password} required />
+    <Select label="نقش" bind:value={newUser.role} options={[
+      { value: 'admin', label: 'ادمین' },
+      { value: 'user', label: 'کاربر' },
     ]} />
+    <Input label="سقف حجم (GB، خالی = نامحدود)" type="number" bind:value={newUser.quota_gb} placeholder="مثلاً 50" />
+    <Input label="تاریخ انقضا" type="date" bind:value={newUser.expiry_at} />
   </div>
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (createOpen = false)}>{$_('common.cancel')}</Button>

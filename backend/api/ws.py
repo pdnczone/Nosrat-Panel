@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 
 from api.nodes import complete_command, mark_registered, record_log, record_metric
 from core.agent_auth import AgentAuthError, decode_node_token, has_scope
+from core.deps import get_current_user
 from core.agent_bus import bus, parse_payload, safe_send_json
 from core.config import settings
 from core.plugin_loader import plugin_registry
@@ -35,6 +36,8 @@ router = APIRouter(tags=["websocket"])
 async def _authenticate_ws(websocket: WebSocket) -> dict[str, Any] | None:
     """Validate the JWT supplied via ``?token=`` query parameter or header."""
     token: str | None = websocket.query_params.get("token")
+    if not token:
+        token = websocket.query_params.get("token")
     if not token:
         auth = websocket.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):
@@ -257,6 +260,8 @@ async def agent_socket(
     * ``{"type": "ping"}``
     * ``{"type": "update",  "payload": {"version": "..."}}``
     """
+    if not token:
+        token = websocket.query_params.get("token")
     if not token:
         auth = websocket.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):

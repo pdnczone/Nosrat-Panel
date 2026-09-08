@@ -55,7 +55,7 @@ class ServerOut(BaseModel):
 
 
 class ServerCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     name: str = Field(min_length=1, max_length=128)
     host: str = Field(min_length=1, max_length=255, pattern=r"^[A-Za-z0-9.\-_]+$")
     ssh_port: int = Field(default=22, ge=1, le=65535)
@@ -64,6 +64,10 @@ class ServerCreate(BaseModel):
     ssh_private_key: str | None = Field(default=None, max_length=16384)
     ssh_password: str | None = Field(default=None, max_length=512)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # UI-only fields we accept but don't directly store on Server
+    auth_method: str | None = Field(default=None, max_length=16)
+    node_name: str | None = Field(default=None, max_length=128)
+    node_location: str | None = Field(default=None, max_length=32)
 
 
 class ServerUpdate(BaseModel):

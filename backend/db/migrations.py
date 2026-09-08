@@ -34,9 +34,25 @@ def run_migrations() -> None:
     from core.database import session_scope
 
     with session_scope() as db:
+        _migrate_users_schema(db)
         _seed_admin(db)
         _backfill_node_defaults(db)
         _seed_settings(db)
+
+
+def _migrate_users_schema(db: Session) -> None:
+    """Add new User columns if missing."""
+    if not _table_exists(db, "users"):
+        return
+    for col, col_type in (("quota_gb", "FLOAT"), ("expiry_at", "DATETIME")):
+        if not _column_exists(db, "users", col):
+            try:
+                db.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
+                db.commit()
+                logger.info("added column %s to users table", col)
+            except Exception as exc:
+                logger.warning("could not add column %s: %s", col, exc)
+                db.rollback()
 
 
 def _seed_admin(db: Session) -> None:

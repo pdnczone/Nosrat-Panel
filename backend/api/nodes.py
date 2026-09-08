@@ -106,6 +106,84 @@ async def list_nodes(
     return out
 
 
+class NodeRegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    server_id: int | None = Field(default=None, description="Existing server ID to attach to")
+    name: str = Field(min_length=1, max_length=128)
+    host: str = Field(min_length=1, max_length=255, pattern=r"^[A-Za-z0-9.\-_]+$")
+    ssh_port: int = Field(default=22, ge=1, le=65535)
+    ssh_user: str = Field(default="root", min_length=1, max_length=64)
+    node_name: str | None = Field(default=None, max_length=128)
+    node_location: str | None = Field(default=None, max_length=32)
+
+
+@router.post("", response_model=NodeListEntry, status_code=status.HTTP_201_CREATED)
+async def register_node(
+    payload: NodeRegisterRequest,
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> NodeListEntry:
+    """Manually register a node agent (generates a node token for the agent to connect with)."""
+    from core.agent_auth import issue_node_token
+
+    if payload.server_id:
+        server = db.get(Server, payload.server_id)
+        if server is None:
+            raise HTTPException(status_code=404, detail="server not found")
+    else:
+        if db.query(Server).filter(Server.name == payload.name).first():
+            raise HTTPException(status_code=409, detail="server name already exists")
+        server = Server(
+            name=payload.name,
+            host=payload.host,
+            ssh_port=payload.ssh_port,
+            ssh_user=payload.ssh_user,
+            status="unknown",
+            server_metadata={},
+        )
+        db.add(server)
+        db.flush()
+
+    server.node_name = payload.node_name or payload.name
+    server.node_location = payload.node_location or "external"
+    server.node_installed = True
+
+    token = issue_node_token(
+        server.id,
+        node_name=server.node_name or payload.name,
+        location=server.node_location or "external",
+    )
+    server.node_token = token
+    server.node_status = "pending"
+
+    record_audit(
+        db,
+        action="node.register_manual",
+        user_id=user.id,
+        target=server.name,
+        details={"host": server.host},
+        request=request,
+    )
+    db.commit()
+    db.refresh(server)
+
+    online = bus.is_online(server.id)
+    return NodeListEntry(
+        server_id=server.id,
+        server_name=server.name,
+        host=server.host,
+        node_name=server.node_name,
+        node_location=server.node_location,
+        node_version=server.node_version,
+        node_status="pending",
+        node_installed=True,
+        node_last_seen=server.node_last_seen,
+        online=online,
+        uptime_seconds=None,
+    )
+
+
 @router.get("/{server_id}", response_model=NodeListEntry)
 async def get_node(
     server_id: int,

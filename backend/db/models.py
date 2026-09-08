@@ -58,6 +58,11 @@ class User(Base, TimestampMixin):
     last_login: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Per-user limits (admin/user roles)
+    quota_gb: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    expiry_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 # ── Servers ─────────────────────────────────────────────────────────────────
