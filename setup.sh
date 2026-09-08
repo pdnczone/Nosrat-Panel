@@ -21,6 +21,28 @@ header() {
     echo ""
 }
 
+# Install Node.js v20 via NVM (fallback when NodeSource fails)
+install_node_via_nvm() {
+    log "Installing Node.js v20 via NVM..."
+    # Install NVM if not present
+    if [[ ! -d "$HOME/.nvm" ]] && [[ ! -d "/root/.nvm" ]]; then
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash - &>/dev/null
+    fi
+    # Source NVM
+    export NVM_DIR="$HOME/.nvm"
+    [[ -s "$NVM_DIR/nvm.sh" ]] && \. "$NVM_DIR/nvm.sh"
+    [[ -s "/root/.nvm/nvm.sh" ]] && \. "/root/.nvm/nvm.sh"
+    # Install and use Node 20
+    nvm install 20
+    nvm use 20
+    # Symlink to /usr/local/bin for system-wide access
+    NODE_PATH=$(which node)
+    NPM_PATH=$(which npm)
+    ln -sf "$NODE_PATH" /usr/local/bin/node
+    ln -sf "$NPM_PATH" /usr/local/bin/npm
+    log "Node.js $(node -v) installed via NVM"
+}
+
 # ── Constants ─────────────────────────────────────────────────────────────
 INSTALL_DIR="/opt/nosrat-panel"
 VENV_DIR="$INSTALL_DIR/venv"
@@ -63,8 +85,17 @@ if [[ "$PKG_MGR" == "apt" ]]; then
     # Try to install a newer Node.js from nodesource if on apt
     if ! command -v node &>/dev/null || [[ "$NODE_VER" -lt 20 ]]; then
         log "Installing Node.js v20 from NodeSource..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
+        # Run NodeSource setup (shows output for debugging if it fails)
+        if ! curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; then
+            warn "NodeSource setup failed. Falling back to NVM installation..."
+            install_node_via_nvm
+        else
+            # Refresh package list after adding NodeSource repo
+            apt-get update -qq
+        fi
     fi
+    # Fix any broken packages before installing
+    apt-get install -f -y &>/dev/null || true
     apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv nodejs npm \
         nginx certbot python3-certbot-nginx \
