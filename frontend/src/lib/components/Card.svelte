@@ -1,8 +1,8 @@
 <script>
-  let { title = '', subtitle = '', class: cls = '', children, footer = null, headerActions = null } = $props();
+  let { title = '', subtitle = '', class: cls = '', children, footer = null, headerActions = null, hover = false } = $props();
 </script>
 
-<div class="card {cls}">
+<div class="card {hover ? 'card-hover' : ''} {cls}">
   {#if title || headerActions}
     <div class="flex items-start justify-between mb-4 gap-3">
       <div>

@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from db.models import Server, Tunnel
 
 
 class Plugin(ABC):
@@ -40,31 +43,32 @@ class Plugin(ABC):
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
     @abstractmethod
-    async def create(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Persist the plugin's configuration. Must NOT start the service."""
+    async def create(self, tunnel: Optional["Tunnel"], local: Server, remote: Server, params: dict[str, Any]) -> dict[str, Any]:
+        """Persist the plugin's configuration. Must NOT start the service.
+        ``tunnel`` may be None at creation time (not yet in DB)."""
 
     @abstractmethod
-    async def start(self, tunnel_id: int) -> dict[str, Any]:
+    async def start(self, tunnel: Tunnel, local: Server, remote: Server) -> dict[str, Any]:
         """Bring the tunnel up. Returns a status dict."""
 
     @abstractmethod
-    async def stop(self, tunnel_id: int) -> dict[str, Any]:
+    async def stop(self, tunnel: Tunnel, local: Server, remote: Server) -> dict[str, Any]:
         """Bring the tunnel down. Returns a status dict."""
 
     @abstractmethod
-    async def restart(self, tunnel_id: int) -> dict[str, Any]:
+    async def restart(self, tunnel: Tunnel, local: Server, remote: Server) -> dict[str, Any]:
         """Restart the tunnel. Returns a status dict."""
 
     @abstractmethod
-    async def status(self, tunnel_id: int) -> dict[str, Any]:
+    async def status(self, tunnel: Tunnel, local: Server, remote: Server) -> dict[str, Any]:
         """Return the current tunnel status (up/down/error/etc)."""
 
     @abstractmethod
-    async def logs(self, tunnel_id: int, *, lines: int = 100) -> str:
+    async def logs(self, tunnel: Tunnel, local: Server, remote: Server, *, lines: int = 100) -> str:
         """Return the most recent log lines for this tunnel."""
 
     @abstractmethod
-    async def destroy(self, tunnel_id: int) -> dict[str, Any]:
+    async def destroy(self, tunnel: Tunnel, local: Server, remote: Server) -> dict[str, Any]:
         """Remove all configuration and state for this tunnel."""
 
     # ── Optional helpers ──────────────────────────────────────────────────

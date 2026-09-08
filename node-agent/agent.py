@@ -55,9 +55,10 @@ METRICS_INTERVAL: float = float(os.environ.get("METRICS_INTERVAL", "5"))
 WS_RECONNECT_MIN: float = float(os.environ.get("WS_RECONNECT_MIN", "1"))
 WS_RECONNECT_MAX: float = float(os.environ.get("WS_RECONNECT_MAX", "30"))
 LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO").upper()
-
-AGENT_VERSION = "1.0.0"
+AGENT_VERSION = "1.1.0"
 AGENT_DIR = Path(__file__).resolve().parent
+TUNNEL_CONFIG_DIR = Path("/etc/nosrat-tunnels")
+TUNNEL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger("nosrat-node")
 
@@ -243,6 +244,21 @@ class NodeAgent:
         if mtype == "command":
             asyncio.create_task(self._execute_command(msg))
             return
+        if mtype == "apply_tunnel_config":
+            asyncio.create_task(self._handle_apply_tunnel_config(msg))
+            return
+        if mtype == "start_tunnel":
+            asyncio.create_task(self._handle_start_tunnel(msg))
+            return
+        if mtype == "stop_tunnel":
+            asyncio.create_task(self._handle_stop_tunnel(msg))
+            return
+        if mtype == "tunnel_status":
+            asyncio.create_task(self._handle_tunnel_status(msg))
+            return
+        if mtype == "destroy_tunnel":
+            asyncio.create_task(self._handle_destroy_tunnel(msg))
+            return
         if mtype == "update":
             asyncio.create_task(self._self_update(msg))
             return
@@ -296,6 +312,335 @@ class NodeAgent:
             await self._ws.send_json(
                 {"type": "command_result", "id": command_id, "payload": result}
             )
+
+    # ── Tunnel config / lifecycle handlers ──────────────────────────────
+
+    def _send_tunnel_reply(self, msg: dict[str, Any], payload: dict[str, Any]) -> None:
+        """Send a reply for tunnel commands (use the message 'id' as command_id)."""
+        if self._ws is not None:
+            command_id = msg.get("id") or uuid.uuid4().hex
+            asyncio.create_task(
+                self._ws.send_json(
+                    {"type": "command_result", "id": command_id, "payload": payload}
+                )
+            )
+
+    async def _handle_apply_tunnel_config(self, msg: dict[str, Any]) -> None:
+        """Write the tunnel config file and install any required packages."""
+        payload = msg.get("payload") or {}
+        plugin = payload.get("plugin", "")
+        config = payload.get("config", {})
+        tunnel_id = config.get("tunnel_id") or payload.get("tunnel_id") or 0
+        logger.info("apply_tunnel_config plugin=%s tunnel_id=%s", plugin, tunnel_id)
+
+        try:
+            # Persist the config to disk
+            cfg_path = TUNNEL_CONFIG_DIR / f"{plugin}-{tunnel_id}.json"
+            cfg_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+            cfg_path.chmod(0o600)
+
+            # Install required packages based on plugin type
+            if plugin == "gre_ipsec":
+                ret = await self._run_subprocess(
+                    "apt-get update -qq && apt-get install -y -qq strongswan iproute2 || "
+                    "yum install -y strongswan iproute || dnf install -y strongswan iproute",
+                    timeout=300,
+                )
+                if ret.get("exit_code") != 0:
+                    logger.warning("package install warning: %s", ret.get("stderr"))
+            elif plugin == "wireguard_native":
+                ret = await self._run_subprocess(
+                    "apt-get install -y -qq wireguard wireguard-tools || "
+                    "yum install -y wireguard-tools || dnf install -y wireguard-tools",
+                    timeout=300,
+                )
+                if ret.get("exit_code") != 0:
+                    logger.warning("wg install warning: %s", ret.get("stderr"))
+
+            self._send_tunnel_reply(msg, {
+                "status": "success",
+                "stdout": f"config written to {cfg_path}",
+                "stderr": "",
+                "exit_code": 0,
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("apply_tunnel_config failed")
+            self._send_tunnel_reply(msg, {
+                "status": "failed",
+                "stdout": "",
+                "stderr": str(exc),
+                "exit_code": -1,
+            })
+
+    async def _handle_start_tunnel(self, msg: dict[str, Any]) -> None:
+        """Start the tunnel: bring up GRE interface, IPsec SA, or wg-quick."""
+        payload = msg.get("payload") or {}
+        plugin = payload.get("plugin", "")
+        tunnel_id = payload.get("tunnel_id") or 0
+        logger.info("start_tunnel plugin=%s tunnel_id=%s", plugin, tunnel_id)
+
+        try:
+            if plugin == "gre_ipsec":
+                await self._run_subprocess(
+                    "systemctl enable --now strongswan 2>/dev/null; systemctl enable --now ipsec 2>/dev/null; true",
+                    timeout=60,
+                )
+                # Read config to determine GRE addresses
+                cfg_path = self._find_config(plugin, tunnel_id)
+                iran_gre = "10.200.0.1/30"
+                external_gre = "10.200.0.2/30"
+                local_public = ""
+                remote_public = ""
+                if cfg_path and cfg_path.exists():
+                    cfg = json.loads(cfg_path.read_text())
+                    iran_gre = cfg.get("iran", {}).get("gre_ip", iran_gre)
+                    external_gre = cfg.get("external", {}).get("gre_ip", external_gre)
+                    local_public = cfg.get("iran", {}).get("public_ip", "")
+                    remote_public = cfg.get("external", {}).get("public_ip", "")
+
+                # Determine if we are the Iran side or external side based on
+                # which public_ip matches this host's addresses.
+                is_iran = self._is_this_host(local_public)
+                gre_ip = iran_gre if is_iran else external_gre
+                peer_ip = external_gre if is_iran else iran_gre
+                remote_pub = remote_public if is_iran else local_public
+
+                # Configure GRE tunnel
+                await self._run_subprocess(
+                    f"ip link add gre0 type gre remote {remote_pub} local {local_public if is_iran else remote_public} ttl 255",
+                    timeout=10,
+                )
+                await self._run_subprocess(
+                    f"ip addr add {gre_ip} dev gre0",
+                    timeout=10,
+                )
+                await self._run_subprocess("ip link set gre0 up", timeout=10)
+                # IPsec stronglyswan config
+                await self._write_ipsec_config(tunnel_id, gre_ip, peer_ip, remote_pub)
+                await self._run_subprocess("ipsec restart", timeout=30)
+
+            elif plugin == "wireguard_native":
+                interface = f"wg{tunnel_id}"
+                await self._run_subprocess(f"wg-quick up {interface}", timeout=60)
+
+            elif plugin == "ghost_tunnel":
+                for unit in ("wg-quick@wg0", "cloak-client", "nginx"):
+                    await self._run_subprocess(f"systemctl start {unit}", timeout=30)
+
+            self._send_tunnel_reply(msg, {
+                "status": "success",
+                "stdout": "tunnel started",
+                "stderr": "",
+                "exit_code": 0,
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("start_tunnel failed")
+            self._send_tunnel_reply(msg, {
+                "status": "failed",
+                "stdout": "",
+                "stderr": str(exc),
+                "exit_code": -1,
+            })
+
+    async def _handle_stop_tunnel(self, msg: dict[str, Any]) -> None:
+        """Stop the tunnel."""
+        payload = msg.get("payload") or {}
+        plugin = payload.get("plugin", "")
+        tunnel_id = payload.get("tunnel_id") or 0
+        logger.info("stop_tunnel plugin=%s tunnel_id=%s", plugin, tunnel_id)
+
+        try:
+            if plugin == "gre_ipsec":
+                await self._run_subprocess("ip link set gre0 down", timeout=10)
+                await self._run_subprocess("ip link del gre0", timeout=10)
+                await self._run_subprocess("ipsec stop", timeout=30)
+            elif plugin == "wireguard_native":
+                interface = f"wg{tunnel_id}"
+                await self._run_subprocess(f"wg-quick down {interface}", timeout=60)
+            elif plugin == "ghost_tunnel":
+                for unit in ("wg-quick@wg0", "cloak-client", "nginx"):
+                    await self._run_subprocess(f"systemctl stop {unit}", timeout=30)
+
+            self._send_tunnel_reply(msg, {
+                "status": "success",
+                "stdout": "tunnel stopped",
+                "stderr": "",
+                "exit_code": 0,
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("stop_tunnel failed")
+            self._send_tunnel_reply(msg, {
+                "status": "failed",
+                "stdout": "",
+                "stderr": str(exc),
+                "exit_code": -1,
+            })
+
+    async def _handle_tunnel_status(self, msg: dict[str, Any]) -> None:
+        """Report real tunnel status from this endpoint."""
+        payload = msg.get("payload") or {}
+        plugin = payload.get("plugin", "")
+        tunnel_id = payload.get("tunnel_id") or 0
+
+        try:
+            if plugin == "gre_ipsec":
+                gre_r = await self._run_subprocess("ip link show gre0", timeout=10)
+                ipsec_r = await self._run_subprocess("ipsec status 2>&1 | head -40", timeout=10)
+                gre_up = gre_r.get("exit_code") == 0
+                ipsec_out = ipsec_r.get("stdout", "")
+                sa_up = "INSTALLED" in ipsec_out or "ESTABLISHED" in ipsec_out
+                status = "up" if (gre_up and sa_up) else "down"
+                self._send_tunnel_reply(msg, {
+                    "status": status,
+                    "gre_up": gre_up,
+                    "ipsec_established": sa_up,
+                    "stdout": f"gre_up={gre_up} | ipsec_sa={sa_up}",
+                    "stderr": "",
+                    "exit_code": 0,
+                })
+            elif plugin == "wireguard_native":
+                interface = f"wg{tunnel_id}"
+                r = await self._run_subprocess(f"wg show {interface}", timeout=10)
+                if r.get("exit_code") != 0:
+                    self._send_tunnel_reply(msg, {
+                        "status": "down",
+                        "stdout": r.get("stdout", ""),
+                        "stderr": r.get("stderr", ""),
+                        "exit_code": r.get("exit_code", 1),
+                    })
+                else:
+                    # Parse transfer stats
+                    transfer_rx = transfer_tx = 0
+                    for line in r.get("stdout", "").splitlines():
+                        if "transfer:" in line:
+                            parts = line.split()
+                            for i, part in enumerate(parts):
+                                if part == "received,":
+                                    transfer_rx = _parse_bytes(parts[i - 1])
+                                elif part == "sent":
+                                    transfer_tx = _parse_bytes(parts[i - 1])
+                    self._send_tunnel_reply(msg, {
+                        "status": "up",
+                        "traffic_in_bytes": transfer_rx,
+                        "traffic_out_bytes": transfer_tx,
+                        "stdout": r.get("stdout", ""),
+                        "stderr": "",
+                        "exit_code": 0,
+                    })
+            elif plugin == "ghost_tunnel":
+                statuses = {}
+                for unit in ("wg-quick@wg0", "cloak-client", "nginx"):
+                    r = await self._run_subprocess(
+                        f"systemctl is-active {unit}", timeout=10
+                    )
+                    statuses[unit] = r.get("stdout", "").strip()
+                all_active = all(v == "active" for v in statuses.values())
+                self._send_tunnel_reply(msg, {
+                    "status": "up" if all_active else "down",
+                    "units": statuses,
+                    "stdout": json.dumps(statuses),
+                    "stderr": "",
+                    "exit_code": 0,
+                })
+            else:
+                self._send_tunnel_reply(msg, {
+                    "status": "unknown",
+                    "stderr": f"unknown plugin: {plugin}",
+                    "exit_code": 1,
+                    "stdout": "",
+                })
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("tunnel_status failed")
+            self._send_tunnel_reply(msg, {
+                "status": "error",
+                "stderr": str(exc),
+                "exit_code": -1,
+                "stdout": "",
+            })
+
+    async def _handle_destroy_tunnel(self, msg: dict[str, Any]) -> None:
+        """Remove tunnel configuration files and bring everything down."""
+        payload = msg.get("payload") or {}
+        plugin = payload.get("plugin", "")
+        tunnel_id = payload.get("tunnel_id") or 0
+        try:
+            await self._handle_stop_tunnel(msg)
+            cfg = self._find_config(plugin, tunnel_id)
+            if cfg and cfg.exists():
+                cfg.unlink(missing_ok=True)
+            self._send_tunnel_reply(msg, {
+                "status": "success",
+                "stdout": "destroyed",
+                "stderr": "",
+                "exit_code": 0,
+            })
+        except Exception as exc:  # noqa: BLE001
+            self._send_tunnel_reply(msg, {
+                "status": "failed",
+                "stderr": str(exc),
+                "exit_code": -1,
+                "stdout": "",
+            })
+
+    def _find_config(self, plugin: str, tunnel_id: int) -> Path | None:
+        """Look up the config file for a plugin+tunnel combination."""
+        if not TUNNEL_CONFIG_DIR.exists():
+            return None
+        candidates = [
+            TUNNEL_CONFIG_DIR / f"{plugin}-{tunnel_id}.json",
+            TUNNEL_CONFIG_DIR / f"{plugin}-{tunnel_id}.conf",
+        ]
+        for c in candidates:
+            if c.exists():
+                return c
+        return None
+
+    def _is_this_host(self, ip: str) -> bool:
+        """Heuristic: check if an IP matches any local interface address."""
+        if not ip:
+            return True  # cannot determine — assume local
+        try:
+            addrs: set[str] = set()
+            for iface_addrs in psutil.net_if_addrs().values():
+                for a in iface_addrs:
+                    addrs.add(a.address)
+        except Exception:  # noqa: BLE001
+            addrs = set()
+        return ip in addrs or ip == "127.0.0.1"
+
+    async def _write_ipsec_config(self, tunnel_id: int, local_gre: str, peer_gre: str, remote_pub: str) -> None:
+        """Write strongSwan ipsec.conf + ipsec.secrets for a GRE-over-IPsec tunnel."""
+        conn_name = f"gre-{tunnel_id}"
+        local_gre_ip = local_gre.split("/")[0]
+        peer_gre_ip = peer_gre.split("/")[0]
+
+        conf = f"""conn {conn_name}
+    type=transport
+    keyexchange=ikev2
+    left=%defaultroute
+    leftprotoport=47
+    right={remote_pub}
+    rightprotoport=47
+    auto=add
+"""
+        secrets = f"# PSK for {conn_name}\n: PSK \"{self._read_psk(tunnel_id)}\"\n"
+        try:
+            Path("/etc/ipsec.conf").write_text(conf, encoding="utf-8")
+            Path("/etc/ipsec.secrets").write_text(secrets, encoding="utf-8")
+        except OSError as exc:
+            logger.warning("could not write ipsec config: %s", exc)
+            raise RuntimeError(f"could not write ipsec config: {exc}") from exc
+
+    def _read_psk(self, tunnel_id: int) -> str:
+        """Read the PSK from a tunnel config file."""
+        try:
+            cfg_path = self._find_config("gre_ipsec", tunnel_id)
+            if cfg_path and cfg_path.exists():
+                cfg = json.loads(cfg_path.read_text())
+                return str(cfg.get("psk", ""))
+        except Exception:  # noqa: BLE001
+            pass
+        return ""
 
     async def _self_update(self, msg: dict[str, Any]) -> None:
         """Trigger a self-update: download the latest ``agent.py`` and restart."""
@@ -488,6 +833,26 @@ def _interfaces() -> list[dict[str, Any]]:
             entry.setdefault(key, []).append(addr.address)
         out.append(entry)
     return out
+
+
+def _parse_bytes(size_str: str) -> int:
+    """Parse a size string like '1.23 MiB' to bytes."""
+    units = {
+        "B": 1,
+        "KiB": 1024,
+        "MiB": 1024 ** 2,
+        "GiB": 1024 ** 3,
+        "TiB": 1024 ** 4,
+    }
+    parts = size_str.split()
+    if len(parts) != 2:
+        return 0
+    try:
+        value = float(parts[0])
+        unit = parts[1]
+        return int(value * units.get(unit, 1))
+    except (ValueError, KeyError):
+        return 0
 
 
 # ── CLI entry ─────────────────────────────────────────────────────────────

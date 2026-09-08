@@ -19,6 +19,7 @@
   import Servers from './routes/Servers.svelte';
   import Nodes from './routes/Nodes.svelte';
   import Users from './routes/Users.svelte';
+  import Clients from './routes/Clients.svelte';
   import Settings from './routes/Settings.svelte';
   import NotFound from './routes/NotFound.svelte';
 
@@ -122,6 +123,8 @@
           <Nodes />
         {:else if route.route === 'users'}
           <Users />
+        {:else if route.route === 'clients'}
+          <Clients />
         {:else if route.route === 'settings'}
           <Settings />
         {:else}

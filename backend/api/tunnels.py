@@ -16,8 +16,7 @@ from core.database import get_db
 from core.deps import get_current_user, record_audit
 from core.plugin_loader import plugin_registry
 from core.subprocess import CommandError, run
-from db.models import Tunnel, TunnelLog, User
-
+from db.models import Server, Tunnel, TunnelLog, User
 
 logger = logging.getLogger("nosrat.api.tunnels")
 router = APIRouter(prefix="/api/tunnels", tags=["tunnels"])
@@ -47,6 +46,8 @@ class TunnelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     plugin: str = Field(min_length=1, max_length=64)
     server_id: int | None = None
+    local_server_id: int | None = None
+    remote_server_id: int | None = None
     params: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -55,6 +56,8 @@ class TunnelUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     params: dict[str, Any] | None = None
     server_id: int | None = None
+    local_server_id: int | None = None
+    remote_server_id: int | None = None
 
 
 class TunnelActionResult(BaseModel):
@@ -98,6 +101,27 @@ def _get_plugin(name: str):
         ) from exc
 
 
+def _resolve_servers(db: Session, tunnel: Tunnel) -> tuple[Server, Server] | None:
+    """Resolve the local and remote Server objects for a tunnel.
+
+    Uses ``local_server_id`` / ``remote_server_id`` if set, otherwise falls
+    back to the legacy ``server_id`` (treated as ``local_server_id``).
+    Returns ``None`` if servers cannot be resolved.
+    """
+    local_id = tunnel.local_server_id or tunnel.server_id
+    remote_id = tunnel.remote_server_id
+
+    if local_id is None or remote_id is None:
+        return None
+
+    local = db.get(Server, local_id)
+    remote = db.get(Server, remote_id)
+    if local is None or remote is None:
+        return None
+
+    return local, remote
+
+
 def _log(db: Session, tunnel_id: int, message: str, *, level: str = "info") -> None:
     db.add(
         TunnelLog(
@@ -134,9 +158,34 @@ async def create_tunnel(
     ):
         raise HTTPException(status_code=409, detail="tunnel name already exists")
 
+    # Resolve servers
+    local_server: Server | None = None
+    remote_server: Server | None = None
+
+    local_id = payload.local_server_id or payload.server_id
+    remote_id = payload.remote_server_id
+
+    if local_id:
+        local_server = db.get(Server, local_id)
+    if remote_id:
+        remote_server = db.get(Server, remote_id)
+
+    # If only server_id was given, set local_server_id for consistency
+    if payload.server_id and not payload.local_server_id:
+        payload.local_server_id = payload.server_id
+
     plugin = _get_plugin(payload.plugin)
     try:
-        result = await plugin.create(payload.params)
+        if local_server and remote_server:
+            result = await plugin.create(
+                None,  # tunnel not yet created in DB
+                local_server,
+                remote_server,
+                payload.params,
+            )
+        else:
+            # Fallback for single-server or demo mode
+            result = await plugin.create(None, local_server or remote_server, remote_server or local_server or Server(name="demo", host="localhost", server_metadata={}), payload.params)
     except (ValueError, KeyError, CommandError) as exc:
         msg = str(exc)
         if isinstance(exc, KeyError):
@@ -145,6 +194,8 @@ async def create_tunnel(
 
     tunnel = Tunnel(
         server_id=payload.server_id,
+        local_server_id=payload.local_server_id,
+        remote_server_id=payload.remote_server_id,
         plugin=payload.plugin,
         type=payload.plugin,
         name=payload.name,
@@ -199,6 +250,10 @@ async def update_tunnel(
         tunnel.params = payload.params
     if payload.server_id is not None:
         tunnel.server_id = payload.server_id
+    if payload.local_server_id is not None:
+        tunnel.local_server_id = payload.local_server_id
+    if payload.remote_server_id is not None:
+        tunnel.remote_server_id = payload.remote_server_id
     record_audit(
         db,
         action="tunnel.update",
@@ -223,9 +278,13 @@ async def delete_tunnel(
     if tunnel is None:
         raise HTTPException(status_code=404, detail="tunnel not found")
     target = tunnel.name
+    servers = _resolve_servers(db, tunnel)
     try:
         plugin = _get_plugin(tunnel.plugin)
-        await plugin.destroy(tunnel.id)
+        if servers:
+            await plugin.destroy(tunnel, servers[0], servers[1])
+        else:
+            await plugin.destroy(tunnel, Server(name="demo", host="localhost", server_metadata={}), Server(name="demo", host="localhost", server_metadata={}))
     except (KeyError, CommandError) as exc:
         logger.warning("plugin destroy failed for %s: %s", tunnel.name, exc)
     db.delete(tunnel)
@@ -243,8 +302,45 @@ async def delete_tunnel(
 # ── Lifecycle actions ─────────────────────────────────────────────────────
 
 
+async def _lifecycle_action(
+    tunnel: Tunnel,
+    db: Session,
+    action: str,
+    plugin_method_name: str,
+    error_status: str,
+    success_status: str,
+    request: Request,
+    user: User,
+) -> TunnelActionResult:
+    """Generic lifecycle handler that resolves servers and dispatches to plugin."""
+    plugin = _get_plugin(tunnel.plugin)
+    servers = _resolve_servers(db, tunnel)
+    try:
+        if servers:
+            result = await getattr(plugin, plugin_method_name)(tunnel, servers[0], servers[1])
+        else:
+            # Fallback for tunnels without two servers
+            demo = Server(name="demo", host="localhost", server_metadata={})
+            result = await getattr(plugin, plugin_method_name)(tunnel, demo, demo)
+    except CommandError as exc:
+        tunnel.status = "error"
+        tunnel.error_message = exc.stderr or str(exc)
+        _log(db, tunnel.id, f"{action} failed: {tunnel.error_message}", level="error")
+        db.commit()
+        raise HTTPException(status_code=500, detail=tunnel.error_message) from exc
+
+    tunnel.status = (result or {}).get("status", success_status)
+    tunnel.last_status_check = datetime.utcnow()
+    if action != "start":
+        tunnel.error_message = None
+    _log(db, tunnel.id, f"tunnel {action}")
+    record_audit(db, action=f"tunnel.{action}", user_id=user.id, target=tunnel.name, request=request)
+    db.commit()
+    return TunnelActionResult(tunnel_id=tunnel.id, status=tunnel.status, detail=result)
+
+
 @router.post("/{tunnel_id}/start", response_model=TunnelActionResult)
-async def start_tunnel(
+async def start_tunnel_action(
     tunnel_id: int,
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -253,28 +349,11 @@ async def start_tunnel(
     tunnel = db.get(Tunnel, tunnel_id)
     if tunnel is None:
         raise HTTPException(status_code=404, detail="tunnel not found")
-    plugin = _get_plugin(tunnel.plugin)
-    try:
-        result = await plugin.start(tunnel.id)
-    except CommandError as exc:
-        tunnel.status = "error"
-        tunnel.error_message = exc.stderr or str(exc)
-        _log(db, tunnel.id, f"start failed: {tunnel.error_message}", level="error")
-        db.commit()
-        raise HTTPException(status_code=500, detail=tunnel.error_message) from exc
-    tunnel.status = (result or {}).get("status", "starting")
-    tunnel.last_status_check = datetime.utcnow()
-    tunnel.error_message = None
-    _log(db, tunnel.id, "tunnel started")
-    record_audit(
-        db, action="tunnel.start", user_id=user.id, target=tunnel.name, request=request
-    )
-    db.commit()
-    return TunnelActionResult(tunnel_id=tunnel.id, status=tunnel.status, detail=result)
+    return await _lifecycle_action(tunnel, db, "start", "start", "error", "starting", request, user)
 
 
 @router.post("/{tunnel_id}/stop", response_model=TunnelActionResult)
-async def stop_tunnel(
+async def stop_tunnel_action(
     tunnel_id: int,
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -283,24 +362,11 @@ async def stop_tunnel(
     tunnel = db.get(Tunnel, tunnel_id)
     if tunnel is None:
         raise HTTPException(status_code=404, detail="tunnel not found")
-    plugin = _get_plugin(tunnel.plugin)
-    try:
-        result = await plugin.stop(tunnel.id)
-    except CommandError as exc:
-        _log(db, tunnel.id, f"stop failed: {exc.stderr or exc}", level="error")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    tunnel.status = (result or {}).get("status", "stopped")
-    tunnel.last_status_check = datetime.utcnow()
-    _log(db, tunnel.id, "tunnel stopped")
-    record_audit(
-        db, action="tunnel.stop", user_id=user.id, target=tunnel.name, request=request
-    )
-    db.commit()
-    return TunnelActionResult(tunnel_id=tunnel.id, status=tunnel.status, detail=result)
+    return await _lifecycle_action(tunnel, db, "stop", "stop", "error", "stopped", request, user)
 
 
 @router.post("/{tunnel_id}/restart", response_model=TunnelActionResult)
-async def restart_tunnel(
+async def restart_tunnel_action(
     tunnel_id: int,
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
@@ -309,24 +375,7 @@ async def restart_tunnel(
     tunnel = db.get(Tunnel, tunnel_id)
     if tunnel is None:
         raise HTTPException(status_code=404, detail="tunnel not found")
-    plugin = _get_plugin(tunnel.plugin)
-    try:
-        result = await plugin.restart(tunnel.id)
-    except CommandError as exc:
-        tunnel.status = "error"
-        tunnel.error_message = exc.stderr or str(exc)
-        _log(db, tunnel.id, f"restart failed: {tunnel.error_message}", level="error")
-        db.commit()
-        raise HTTPException(status_code=500, detail=tunnel.error_message) from exc
-    tunnel.status = (result or {}).get("status", "restarting")
-    tunnel.last_status_check = datetime.utcnow()
-    tunnel.error_message = None
-    _log(db, tunnel.id, "tunnel restarted")
-    record_audit(
-        db, action="tunnel.restart", user_id=user.id, target=tunnel.name, request=request
-    )
-    db.commit()
-    return TunnelActionResult(tunnel_id=tunnel.id, status=tunnel.status, detail=result)
+    return await _lifecycle_action(tunnel, db, "restart", "restart", "error", "restarting", request, user)
 
 
 # ── Inspection endpoints ──────────────────────────────────────────────────
@@ -342,8 +391,13 @@ async def tunnel_status(
     if tunnel is None:
         raise HTTPException(status_code=404, detail="tunnel not found")
     plugin = _get_plugin(tunnel.plugin)
+    servers = _resolve_servers(db, tunnel)
     try:
-        detail = await plugin.status(tunnel.id)
+        if servers:
+            detail = await plugin.status(tunnel, servers[0], servers[1])
+        else:
+            demo = Server(name="demo", host="localhost", server_metadata={})
+            detail = await plugin.status(tunnel, demo, demo)
     except CommandError as exc:
         detail = {"error": exc.stderr or str(exc), "returncode": exc.returncode}
     tunnel.last_status_check = datetime.utcnow()
@@ -393,7 +447,12 @@ async def tunnel_logs(
         }
 
     plugin = _get_plugin(tunnel.plugin)
-    text = await plugin.logs(tunnel.id, lines=lines)
+    servers = _resolve_servers(db, tunnel)
+    if servers:
+        text = await plugin.logs(tunnel, servers[0], servers[1], lines=lines)
+    else:
+        demo = Server(name="demo", host="localhost", server_metadata={})
+        text = await plugin.logs(tunnel, demo, demo, lines=lines)
     return {
         "tunnel_id": tunnel.id,
         "source": "plugin",
@@ -498,4 +557,11 @@ async def tunnel_qrcode(
         qrcode.make(data).save(buf, format="PNG")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"qrcode render failed: {exc}") from exc
-    return Response(content=buf.getvalue(), media_type="image/png")
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'attachment; filename="qr-{tunnel.name}.png"',
+        },
+    )

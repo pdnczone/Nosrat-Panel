@@ -39,7 +39,34 @@
     "advanced": "پیشرفته",
     "basic": "پایه",
     "minutes": "دقیقه",
-    "seconds": "ثانیه"
+    "seconds": "ثانیه",
+    "status_labels": {
+      "running": "در حال اجرا",
+      "active": "فعال",
+      "stopped": "متوقف",
+      "starting": "در حال راه‌اندازی",
+      "stopping": "در حال توقف",
+      "error": "خطا",
+      "failed": "ناموفق",
+      "healthy": "سالم",
+      "unhealthy": "ناسالم",
+      "warning": "هشدار",
+      "unknown": "نامشخص",
+      "online": "آنلاین",
+      "offline": "آفلاین",
+      "pending": "در انتظار",
+      "created": "ساخته شده",
+      "connecting": "در حال اتصال",
+      "reconnecting": "اتصال مجدد",
+      "disconnected": "قطع شده",
+      "over_quota": "از سهمیه گذشته",
+      "expired": "منقضی شده",
+      "active_status": "فعال",
+      "inactive": "غیرفعال"
+    },
+    "connected": "متصل",
+    "no_data": "بدون داده",
+    "qrcode": "QR Code"
   },
   "auth": {
     "title": "ورود به پنل مدیریت",
@@ -59,6 +86,7 @@
     "servers": "سرورها",
     "nodes": "نودها",
     "users": "کاربران",
+    "clients": "کلاینت‌ها",
     "settings": "تنظیمات",
     "logout": "خروج",
     "notifications": "اعلان‌ها"

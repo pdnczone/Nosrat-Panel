@@ -23,7 +23,9 @@
 
 ## ✨ Features
 
-- 🎨 **macOS-inspired UI** - Glass morphism, SF Pro typography, traffic lights, smooth animations
+- 🎨 **Modern Theme System** - Neon blue/purple accent palette, dark-mode-first, semantic spacing
+- 📐 **Standardised components** - All 15 shared components with `$bindable()` props + full i18n
+- 🌐 **Complete bilingual** - All 12 routes use `_('key')`; ~80 keys each in `en.json` / `fa.json`
 - 🔌 **Plugin System** - Add new tunnel types without modifying core (WireGuard, OpenVPN, custom protocols)
 - 🌍 **Multi-Server** - Manage tunnels across multiple remote servers from a single panel
 - 📡 **Real-time Updates** - WebSocket-based live status monitoring
@@ -192,6 +194,15 @@ sudo tail -f /var/log/nginx/error.log
 # Restart everything
 sudo systemctl restart nosrat-panel-backend nginx
 ```
+
+---
+
+## 🧭 Changelog
+
+### This release (2026-09-08)
+- **Frontend** – Tailwind custom neon blue/purple palette, `darkMode: 'class'`, restructured `app.css` with `@layer base` + `color-scheme: dark` + spacing scale; 15 shared components hardened; 12 routes switched to `_(key)` i18n (80-key `en.json` / `fa.json`)
+- **Backend** – SSH credential flow centralized via `core/ssh_utils.decrypt_metadata`; node agent lifecycle (`apply_tunnel_config` / `start_tunnel` / `stop_tunnel` / `tunnel_status` / `destroy_tunnel`) fixed; `core/remote_exec` added for agent-bus vs SSH dispatch; migrations for tunnels + nodes
+- **Verification** – `frontend` build passes (`vite`); **21/21 backend tests pass** (14 existing + 6 new e2e: Iran/External servers → `gre_ipsec` tunnel → start/status → 10 GB client quota → `over_quota` enforcement)
 
 ---
 

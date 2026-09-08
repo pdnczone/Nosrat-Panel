@@ -1,4 +1,6 @@
 <script>
+  import { _ } from '../i18n.js';
+
   let { label = '', type = 'text', value = $bindable(''), placeholder = '', error = '', hint = '', required = false, disabled = false, icon = null, class: cls = '' } = $props();
 </script>
 

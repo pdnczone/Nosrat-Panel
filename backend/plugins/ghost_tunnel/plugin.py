@@ -3,10 +3,17 @@ from __future__ import annotations
 
 import logging
 import shlex
-from pathlib import Path
 from typing import Any
 
-from core.subprocess import CommandError, run, run_shell
+from core.remote_exec import (
+    apply_tunnel_config,
+    run_on_both_endpoints,
+    run_on_server,
+    start_tunnel,
+    stop_tunnel,
+    tunnel_status,
+)
+from db.models import Server, Tunnel
 from plugins.base import Plugin
 
 
@@ -104,98 +111,96 @@ class GhostTunnelPlugin(Plugin):
 
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
-    async def create(self, params: dict[str, Any]) -> dict[str, Any]:
-        cfg_path = self._write_config(params)
+    async def create(
+        self, tunnel: Tunnel | None, local: Server, remote: Server, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Configure both endpoints for Ghost Tunnel mode."""
+        cfg = self._build_ghost_config(tunnel, params)
+
+        # Send config to both endpoints
+        local_res, remote_res = await apply_tunnel_config(local, remote, self.name, cfg)
 
         return {
-            "config_path": str(cfg_path),
+            "local": local_res,
+            "remote": remote_res,
+            "installer_staged_at": "/tmp/ghosttunnel-install",
             "preview": {
                 "vpn_users": int(params.get("vpn_users", 3)),
                 "dns_server": params.get("dns_server", "1.1.1.1"),
                 "cloak_redir": params.get("cloak_redir", "www.bing.com"),
                 "path_rotation_hours": int(params.get("path_rotation_hours", 6)),
             },
-            "installer_staged_at": "/tmp/ghosttunnel-install",
         }
 
-    async def start(self, tunnel_id: int) -> dict[str, Any]:
-        for unit in ("wg-quick@wg0", "cloak", "nginx"):
-            try:
-                await run(["systemctl", "start", unit], check=False)
-            except CommandError as exc:
-                logger.warning("failed to start %s: %s", unit, exc)
-        return {"tunnel_id": tunnel_id, "status": "starting"}
-
-    async def stop(self, tunnel_id: int) -> dict[str, Any]:
-        for unit in ("wg-quick@wg0", "cloak", "nginx"):
-            try:
-                await run(["systemctl", "stop", unit], check=False)
-            except CommandError as exc:
-                logger.warning("failed to stop %s: %s", unit, exc)
-        return {"tunnel_id": tunnel_id, "status": "stopped"}
-
-    async def restart(self, tunnel_id: int) -> dict[str, Any]:
-        for unit in ("wg-quick@wg0", "cloak", "nginx"):
-            try:
-                await run(["systemctl", "restart", unit], check=False)
-            except CommandError as exc:
-                logger.warning("failed to restart %s: %s", unit, exc)
-        return {"tunnel_id": tunnel_id, "status": "restarted"}
-
-    async def status(self, tunnel_id: int) -> dict[str, Any]:
-        result: dict[str, Any] = {"tunnel_id": tunnel_id, "units": {}}
-        for unit in ("wg-quick@wg0", "cloak", "nginx"):
-            try:
-                r = await run(
-                    ["systemctl", "is-active", unit],
-                    timeout=5,
-                    check=False,
-                )
-                result["units"][unit] = {
-                    "active": r.stdout.strip() == "active",
-                    "raw": r.stdout.strip(),
-                }
-            except CommandError as exc:
-                result["units"][unit] = {"active": False, "error": str(exc)}
-        try:
-            r = await run_shell("cat /var/www/html/current-path 2>/dev/null || true")
-            result["current_path"] = r.stdout.strip()
-        except CommandError:
-            result["current_path"] = None
-        return result
-
-    async def logs(self, tunnel_id: int, *, lines: int = 100) -> str:
-        n = max(1, min(lines, 1000))
-        try:
-            result = await run(
-                [
-                    "journalctl",
-                    "-u",
-                    "wg-quick@wg0",
-                    "-u",
-                    "cloak",
-                    "-u",
-                    "nginx",
-                    "-n",
-                    str(n),
-                    "--no-pager",
-                    "-q",
-                ],
-                timeout=15,
-            )
-            return result.stdout or result.stderr
-        except CommandError as exc:
-            return exc.stderr or str(exc)
-
-    async def destroy(self, tunnel_id: int) -> dict[str, Any]:
-        cfg_path = Path("/etc/ghost_tunnel/config.sh")
-        if cfg_path.exists():
-            cfg_path.unlink(missing_ok=True)
-        await run_shell(
-            "rm -rf /etc/wireguard/clients /var/www/html/current-path",
-            check=False,
+    async def start(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Start all services on both endpoints."""
+        services = ["wg-quick@wg0", "cloak-client", "nginx"]
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "start_services", [",".join(services)]
         )
-        return {"tunnel_id": tunnel_id, "destroyed": True}
+        return {
+            "local": local_res,
+            "remote": remote_res,
+            "status": "starting",
+        }
+
+    async def stop(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Stop all services on both endpoints."""
+        services = ["wg-quick@wg0", "cloak-client", "nginx"]
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "stop_services", [",".join(services)]
+        )
+        return {
+            "local": local_res,
+            "remote": remote_res,
+            "status": "stopped",
+        }
+
+    async def restart(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Restart the tunnel on both endpoints."""
+        await self.stop(tunnel, local, remote)
+        return await self.start(tunnel, local, remote)
+
+    async def status(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Get status from both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "tunnel_status", [self.name]
+        )
+        return {
+            "local": local_res,
+            "remote": remote_res,
+        }
+
+    async def logs(
+        self, tunnel: Tunnel, local: Server, remote: Server, *, lines: int = 100
+    ) -> str:
+        """Get recent Ghost Tunnel logs from both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "journalctl",
+            ["-u", "wg-quick@wg0", "-u", "cloak-client", "-u", "nginx", "-n", str(lines), "--no-pager", "-q"],
+        )
+        return f"=== {local.name} ===\n{local_res.get('stdout', '')}\n\n=== {remote.name} ===\n{remote_res.get('stdout', '')}"
+
+    async def destroy(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Remove all configuration on both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "destroy_tunnel", [self.name]
+        )
+        return {
+            "local": local_res,
+            "remote": remote_res,
+            "destroyed": True,
+        }
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -221,3 +226,20 @@ class GhostTunnelPlugin(Plugin):
         except OSError:  # pragma: no cover
             pass
         return cfg_path
+
+    def _build_ghost_config(
+        self, tunnel: Tunnel, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build Ghost Tunnel configuration for the agent."""
+        return {
+            "plugin": self.name,
+            "tunnel_id": tunnel.id,
+            "tunnel_name": tunnel.name or f"ghost-{tunnel.id}",
+            "vpn_users": int(params.get("vpn_users", 3)),
+            "dns_server": params.get("dns_server", "1.1.1.1"),
+            "cloak_redir": params.get("cloak_redir", "www.bing.com"),
+            "path_rotation_hours": int(params.get("path_rotation_hours", 6)),
+            "use_domain": params.get("use_domain", False),
+            "domain_name": params.get("domain_name", ""),
+            "email": params.get("email", ""),
+        }

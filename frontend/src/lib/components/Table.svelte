@@ -1,13 +1,17 @@
 <script>
+  import { _ } from '../i18n.js';
+
   let {
     columns = [],
     rows = [],
     loading = false,
-    emptyText = 'داده‌ای موجود نیست',
+    emptyText = '',
     rowKey = 'id',
     onRowClick = null,
     striped = true
   } = $props();
+
+  const defaultEmpty = $_('common.empty');
 </script>
 
 <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -21,9 +25,9 @@
     </thead>
     <tbody>
       {#if loading}
-        <tr><td colspan={columns.length} class="text-center py-10 text-slate-500">در حال بارگذاری...</td></tr>
+        <tr><td colspan={columns.length} class="text-center py-10 text-slate-500">{$_('common.loading')}</td></tr>
       {:else if rows.length === 0}
-        <tr><td colspan={columns.length} class="text-center py-10 text-slate-500">{emptyText}</td></tr>
+        <tr><td colspan={columns.length} class="text-center py-10 text-slate-500">{emptyText || defaultEmpty}</td></tr>
       {:else}
         {#each rows as row, i (row[rowKey] ?? i)}
           <tr

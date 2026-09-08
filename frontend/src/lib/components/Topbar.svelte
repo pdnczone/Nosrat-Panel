@@ -31,7 +31,7 @@
 
 <header class="bg-slate-950/80 backdrop-blur border-b border-slate-800 sticky top-0 z-30">
   <div class="flex items-center gap-3 px-4 h-14">
-    <button onclick={onToggleSidebar} class="btn-ghost p-2 lg:hidden" aria-label="منو">
+    <button onclick={onToggleSidebar} class="btn-ghost p-2 lg:hidden" aria-label={$_('nav.menu') || 'Menu'}>
       <Menu class="w-5 h-5" />
     </button>
 
@@ -44,17 +44,17 @@
       <input type="search" placeholder={$_('common.search')} class="input ps-10 w-64 bg-slate-900" />
     </div>
 
-    <button onclick={toggleLocale} class="btn-ghost p-2" title="تغییر زبان">
+    <button onclick={toggleLocale} class="btn-ghost p-2" title={$_('settings.general.language') || 'Change language'}>
       <Languages class="w-5 h-5" />
       <span class="text-xs uppercase ms-1 hidden sm:inline">{$locale}</span>
     </button>
 
-    <button onclick={toggleTheme} class="btn-ghost p-2" title="تم">
+    <button onclick={toggleTheme} class="btn-ghost p-2" title={$_('settings.general.theme') || 'Theme'}>
       {#if $theme === 'dark'}<Sun class="w-5 h-5" />{:else}<Moon class="w-5 h-5" />{/if}
     </button>
 
     <div class="relative">
-      <button onclick={() => (notifOpen = !notifOpen)} class="btn-ghost p-2 relative" aria-label="اعلان‌ها">
+      <button onclick={() => (notifOpen = !notifOpen)} class="btn-ghost p-2 relative" aria-label={$_('nav.notifications')}>
         <Bell class="w-5 h-5" />
         {#if unreadCount($notifications) > 0}
           <span class="absolute top-1 end-1 w-2 h-2 bg-red-500 rounded-full"></span>

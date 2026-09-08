@@ -13,7 +13,8 @@
     Settings,
     LogOut,
     Shield,
-    Cpu
+    Cpu,
+    UserCheck
   } from 'lucide-svelte';
 
   let { currentPath = '/', onNavigate = () => {}, collapsed = false } = $props();
@@ -27,6 +28,7 @@
     { path: '/servers', icon: Server, label: $_('nav.servers') },
     { path: '/nodes', icon: Cpu, label: $_('nav.nodes') },
     { path: '/users', icon: Users, label: $_('nav.users'), adminOnly: true },
+    { path: '/clients', icon: UserCheck, label: $_('nav.clients'), adminOnly: true },
     { path: '/settings', icon: Settings, label: $_('nav.settings') }
   ]);
 
@@ -47,10 +49,17 @@
     reconnecting: 'bg-amber-400 animate-pulse',
     disconnected: 'bg-red-400'
   }[wsState] || 'bg-slate-500');
+
+  const wsLabel = $derived({
+    connected: $_('common.status_labels.connected') || 'Connected',
+    connecting: $_('common.status_labels.connecting') || 'Connecting...',
+    reconnecting: $_('common.status_labels.reconnecting') || 'Reconnecting...',
+    disconnected: $_('common.status_labels.disconnected') || 'Disconnected'
+  }[wsState] || $_('common.status_labels.unknown'));
 </script>
 
 <aside
-  class="bg-slate-950 border-slate-800 h-screen sticky top-0 flex flex-col transition-all duration-200
+  class="bg-slate-950/80 backdrop-blur-sm border-slate-800 h-screen sticky top-0 flex flex-col transition-all duration-200
          {collapsed ? 'w-16' : 'w-64'}
          border-l rtl:border-l rtl:border-r-0"
 >
@@ -87,14 +96,12 @@
     {#if !collapsed}
       <div class="flex items-center gap-2 mb-3 text-xs">
         <span class="w-2 h-2 rounded-full {wsClass}"></span>
-        <span class="text-slate-400">
-          {wsState === 'connected' ? 'متصل' : wsState === 'connecting' ? 'در حال اتصال...' : wsState === 'reconnecting' ? 'اتصال مجدد...' : 'قطع'}
-        </span>
+        <span class="text-slate-400">{wsLabel}</span>
       </div>
     {/if}
 
     {#if !collapsed}
-      <div class="flex items-center gap-3 mb-2 p-2 rounded-lg bg-slate-900">
+      <div class="flex items-center gap-3 mb-2 p-2 rounded-lg bg-slate-900/50">
         <div class="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-300 font-semibold text-sm">
           {$auth.user?.username?.[0]?.toUpperCase() ?? '?'}
         </div>

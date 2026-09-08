@@ -39,7 +39,34 @@
     "advanced": "Advanced",
     "basic": "Basic",
     "minutes": "minutes",
-    "seconds": "seconds"
+    "seconds": "seconds",
+    "status_labels": {
+      "running": "Running",
+      "active": "Active",
+      "stopped": "Stopped",
+      "starting": "Starting",
+      "stopping": "Stopping",
+      "error": "Error",
+      "failed": "Failed",
+      "healthy": "Healthy",
+      "unhealthy": "Unhealthy",
+      "warning": "Warning",
+      "unknown": "Unknown",
+      "online": "Online",
+      "offline": "Offline",
+      "pending": "Pending",
+      "created": "Created",
+      "connecting": "Connecting",
+      "reconnecting": "Reconnecting",
+      "disconnected": "Disconnected",
+      "over_quota": "Over Quota",
+      "expired": "Expired",
+      "active_status": "Active",
+      "inactive": "Inactive"
+    },
+    "connected": "Connected",
+    "no_data": "No data",
+    "qrcode": "QR Code"
   },
   "auth": {
     "title": "Sign in to admin panel",
@@ -59,6 +86,7 @@
     "servers": "Servers",
     "nodes": "Nodes",
     "users": "Users",
+    "clients": "Clients",
     "settings": "Settings",
     "logout": "Logout",
     "notifications": "Notifications"

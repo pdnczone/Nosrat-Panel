@@ -1,174 +1,137 @@
-"""WireGuard native plugin - simple wg-quick wrapper.
+"""WireGuard native plugin - simple wg-quick wrapper."""
+from __future__ import annotations
 
-Example plugin showing how to integrate a new tunnel type
-with the nosrat-panel plugin system.
-"""
 from typing import Any
-from pathlib import Path
-import json
-import subprocess
 
+from core.remote_exec import (
+    apply_tunnel_config,
+    run_on_both_endpoints,
+    run_on_server,
+    start_tunnel,
+    stop_tunnel,
+    tunnel_status,
+)
+from db.models import Server, Tunnel
 from plugins.base import Plugin
 
 
 class WireGuardNativePlugin(Plugin):
-    """
-    Manages a native WireGuard tunnel using wg-quick.
+    """Manages a native WireGuard tunnel using wg-quick."""
 
-    This is a minimal example plugin for the nosrat-panel system.
-    """
-
-    # ── Required Plugin class attributes ─────────────────────────────────
     name = "wireguard_native"
     display_name = "WireGuard (Native)"
     description = "Native WireGuard tunnel without obfuscation - simple and fast"
     icon = "🔌"
 
     def get_wizard_schema(self) -> dict[str, Any]:
-        """Load and return the wizard form schema."""
+        import json
+        from pathlib import Path
+
         schema_path = Path(__file__).parent / "wizard_schema.json"
         with open(schema_path) as f:
             return json.load(f)
 
-    def _get_config_path(self, tunnel_id: int) -> Path:
-        return Path(f"/etc/wireguard/wg{tunnel_id}.conf")
+    # ── Lifecycle ────────────────────────────────────────────────────────
 
-    def _generate_keypair(self) -> tuple[str, str]:
-        """Generate a new WireGuard keypair."""
-        private = subprocess.run(
-            ["wg", "genkey"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        public = subprocess.run(
-            ["wg", "pubkey"], input=private, capture_output=True, text=True, check=True
-        ).stdout.strip()
-        return private, public
+    async def create(
+        self, tunnel: Tunnel | None, local: Server, remote: Server, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create WireGuard config on both endpoints."""
+        cfg = self._build_wg_config(tunnel, local, remote, params)
 
-    async def create(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Create a new WireGuard interface configuration."""
-        tunnel_id = params.get("_tunnel_id", 0)
-        config_path = self._get_config_path(tunnel_id)
-
-        # Generate keypair
-        private_key, public_key = self._generate_keypair()
-
-        # Build config
-        config = f"""[Interface]
-Address = {params['client_address']}
-PrivateKey = {private_key}
-DNS = {params.get('dns_servers', '1.1.1.1, 1.0.0.1')}
-
-[Peer]
-PublicKey = <SERVER_PUBLIC_KEY>
-Endpoint = {params['server_endpoint']}:{params['server_port']}
-AllowedIPs = {params['allowed_ips']}
-PersistentKeepalive = {params.get('persistent_keepalive', 25)}
-"""
-
-        # Write config
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(config)
-        config_path.chmod(0o600)
+        # Send config to both endpoints
+        local_res, remote_res = await apply_tunnel_config(local, remote, self.name, cfg)
 
         return {
-            "config_path": str(config_path),
+            "local": local_res,
+            "remote": remote_res,
             "status": "created",
-            "public_key": public_key,
-            "message": f"WireGuard config created. Public key: {public_key}",
         }
 
-    async def start(self, tunnel_id: int) -> dict[str, Any]:
-        """Bring up the WireGuard interface."""
-        interface = f"wg{tunnel_id}"
-        result = subprocess.run(
-            ["wg-quick", "up", interface],
-            capture_output=True, text=True,
+    async def start(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Bring up WireGuard on both endpoints."""
+        local_res, remote_res = await start_tunnel(local, remote, self.name)
+        return {
+            "local": local_res,
+            "remote": remote_res,
+        }
+
+    async def stop(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Bring down WireGuard on both endpoints."""
+        local_res, remote_res = await stop_tunnel(local, remote, self.name)
+        return {
+            "local": local_res,
+            "remote": remote_res,
+        }
+
+    async def restart(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Restart the tunnel on both endpoints."""
+        await self.stop(tunnel, local, remote)
+        return await self.start(tunnel, local, remote)
+
+    async def status(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Get WireGuard status from both endpoints."""
+        local_res, remote_res = await tunnel_status(local, remote, self.name)
+        return {
+            "local": local_res,
+            "remote": remote_res,
+        }
+
+    async def logs(
+        self, tunnel: Tunnel, local: Server, remote: Server, *, lines: int = 100
+    ) -> str:
+        """Get recent WireGuard logs from both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "journalctl", ["-u", f"wg-quick@wg{tunnel.id}", "-n", str(lines), "--no-pager"]
+        )
+        return f"=== {local.name} ===\n{local_res.get('stdout', '')}\n\n=== {remote.name} ===\n{remote_res.get('stdout', '')}"
+
+    async def destroy(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Remove WireGuard configuration on both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "destroy_tunnel", [self.name]
         )
         return {
-            "success": result.returncode == 0,
-            "message": result.stdout if result.returncode == 0 else result.stderr,
+            "local": local_res,
+            "remote": remote_res,
+            "destroyed": True,
         }
 
-    async def stop(self, tunnel_id: int) -> dict[str, Any]:
-        """Bring down the WireGuard interface."""
-        interface = f"wg{tunnel_id}"
-        result = subprocess.run(
-            ["wg-quick", "down", interface],
-            capture_output=True, text=True,
-        )
+    # ── Internal helpers ────────────────────────────────────────────────
+
+    def _build_wg_config(
+        self, tunnel: Tunnel, local: Server, remote: Server, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build full WireGuard configuration for both endpoints."""
+        # Determine which endpoint gets which keys
+        # For simplicity, each endpoint generates its own keypair locally
+        # In real deployment, the controller would generate and distribute keys
         return {
-            "success": result.returncode == 0,
-            "message": result.stdout if result.returncode == 0 else result.stderr,
+            "plugin": self.name,
+            "tunnel_id": tunnel.id,
+            "interface": f"wg{tunnel.id}",
+            "listen_port": params.get("listen_port", 51820),
+            "local": {
+                "address": params["local_address"],  # e.g. "10.200.0.1/32"
+                "mtu": 1420,
+            },
+            "remote": {
+                "endpoint": f"{remote.host}:{params.get('remote_port', 51820)}",
+                "public_key": "<REMOTE_PUBLIC_KEY>",  # Filled in by agent during key exchange
+                "allowed_ips": params["remote_allowed_ips"],  # e.g. "10.200.0.2/32"
+                "persistent_keepalive": params.get("persistent_keepalive", 25),
+            },
+            # MTU, DNS, etc
+            "dns_servers": params.get("dns_servers", "1.1.1.1, 1.0.0.1"),
+            "mtu": 1420,
         }
-
-    async def restart(self, tunnel_id: int) -> dict[str, Any]:
-        """Restart the tunnel."""
-        await self.stop(tunnel_id)
-        return await self.start(tunnel_id)
-
-    async def status(self, tunnel_id: int) -> dict[str, Any]:
-        """Get WireGuard interface status and stats."""
-        interface = f"wg{tunnel_id}"
-        result = subprocess.run(
-            ["wg", "show", interface],
-            capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            return {
-                "status": "inactive",
-                "error_message": result.stderr,
-            }
-
-        # Parse `wg show` output for transfer stats
-        transfer_rx = 0
-        transfer_tx = 0
-        for line in result.stdout.splitlines():
-            if "transfer:" in line:
-                parts = line.split()
-                for i, part in enumerate(parts):
-                    if part == "received,":
-                        transfer_rx = self._parse_bytes(parts[i - 1])
-                    elif part == "sent":
-                        transfer_tx = self._parse_bytes(parts[i - 1])
-
-        return {
-            "status": "active",
-            "traffic_in_bytes": transfer_rx,
-            "traffic_out_bytes": transfer_tx,
-        }
-
-    async def logs(self, tunnel_id: int, *, lines: int = 100) -> str:
-        """Get recent WireGuard logs."""
-        interface = f"wg{tunnel_id}"
-        result = subprocess.run(
-            ["journalctl", "-u", f"wg-quick@{interface}", "-n", str(lines), "--no-pager"],
-            capture_output=True, text=True,
-        )
-        return result.stdout
-
-    async def destroy(self, tunnel_id: int) -> dict[str, Any]:
-        """Remove the WireGuard configuration."""
-        await self.stop(tunnel_id)
-        config_path = self._get_config_path(tunnel_id)
-        if config_path.exists():
-            config_path.unlink()
-        return {"success": True, "message": "Configuration removed"}
-
-    @staticmethod
-    def _parse_bytes(size_str: str) -> int:
-        """Parse a size string like '1.23 MiB' to bytes."""
-        units = {
-            "B": 1,
-            "KiB": 1024,
-            "MiB": 1024 ** 2,
-            "GiB": 1024 ** 3,
-            "TiB": 1024 ** 4,
-        }
-        parts = size_str.split()
-        if len(parts) != 2:
-            return 0
-        try:
-            value = float(parts[0])
-            unit = parts[1]
-            return int(value * units.get(unit, 1))
-        except (ValueError, KeyError):
-            return 0

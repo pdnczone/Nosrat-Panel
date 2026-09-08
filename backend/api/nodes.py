@@ -147,7 +147,11 @@ async def register_node(
 
     server.node_name = payload.node_name or payload.name
     server.node_location = payload.node_location or "external"
-    server.node_installed = True
+    # Manual registration does NOT verify the node is installed. Keep
+    # node_installed=False (not yet verified) and node_status="pending"
+    # until the agent actually connects via /ws/agent (mark_registered
+    # flips node_installed=True + node_status="online"). This prevents a
+    # node that was never installed from being reported as installed.
 
     token = issue_node_token(
         server.id,
@@ -156,6 +160,7 @@ async def register_node(
     )
     server.node_token = token
     server.node_status = "pending"
+    server.node_installed = False
 
     record_audit(
         db,
@@ -177,7 +182,7 @@ async def register_node(
         node_location=server.node_location,
         node_version=server.node_version,
         node_status="pending",
-        node_installed=True,
+        node_installed=False,
         node_last_seen=server.node_last_seen,
         online=online,
         uptime_seconds=None,

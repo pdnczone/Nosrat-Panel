@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.security import hash_password
-from db.models import NodeInstallJob, Server, Setting, User
+from db.models import NodeInstallJob, Server, Setting, Tunnel, User
 
 
 logger = logging.getLogger("nosrat.migrations")
@@ -35,6 +35,7 @@ def run_migrations() -> None:
 
     with session_scope() as db:
         _migrate_users_schema(db)
+        _migrate_tunnels_schema(db)  # NEW
         _seed_admin(db)
         _backfill_node_defaults(db)
         _seed_settings(db)
@@ -53,6 +54,39 @@ def _migrate_users_schema(db: Session) -> None:
             except Exception as exc:
                 logger.warning("could not add column %s: %s", col, exc)
                 db.rollback()
+
+
+def _migrate_tunnels_schema(db: Session) -> None:
+    """Add local_server_id / remote_server_id to tunnels and backfill from server_id."""
+    if not _table_exists(db, "tunnels"):
+        return
+    for col, col_type in (
+        ("local_server_id", "INTEGER"),
+        ("remote_server_id", "INTEGER"),
+    ):
+        if not _column_exists(db, "tunnels", col):
+            try:
+                db.execute(text(f"ALTER TABLE tunnels ADD COLUMN {col} {col_type}"))
+                db.commit()
+                logger.info("added column %s to tunnels table", col)
+            except Exception as exc:
+                logger.warning("could not add column %s: %s", col, exc)
+                db.rollback()
+
+    # Backfill: for existing rows with server_id but no local_server_id,
+    # copy server_id -> local_server_id (preserves legacy single-ended semantics).
+    try:
+        db.execute(
+            text(
+                "UPDATE tunnels SET local_server_id = server_id "
+                "WHERE local_server_id IS NULL AND server_id IS NOT NULL"
+            )
+        )
+        db.commit()
+        logger.info("backfilled local_server_id from server_id for existing tunnels")
+    except Exception as exc:
+        logger.warning("tunnel backfill skipped: %s", exc)
+        db.rollback()
 
 
 def _seed_admin(db: Session) -> None:

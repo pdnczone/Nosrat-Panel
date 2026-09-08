@@ -65,14 +65,13 @@ def get_current_user(
     if user is None or not user.is_active:
         raise _unauthorized("user not found or inactive")
 
-    # Enforce quota/expiry limits for non-admin users
+    # Enforce expiry limits for non-admin users
     now = datetime.now(timezone.utc)
     if user.role != "admin":
         if user.expiry_at and user.expiry_at <= now:
             raise _forbidden("account expired")
-        if user.quota_gb is not None:
-            # todo: actual usage tracking - for now just check if quota is set
-            pass
+        # Note: panel-user quota_gb is informational. Real per-tunnel
+        # per-client quota enforcement lives in TunnelClient + services/usage.py
 
     return user
 

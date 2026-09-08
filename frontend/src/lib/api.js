@@ -106,6 +106,17 @@ export const SpeedAPI = {
   history: (params) => api.get('/speed/history', { params }).then((r) => r.data)
 };
 
+// ---------- Clients (VPN subscribers) endpoints ----------
+export const ClientsAPI = {
+  list: (params) => api.get('/clients', { params }).then((r) => r.data),
+  get: (id) => api.get(`/clients/${id}`).then((r) => r.data),
+  create: (payload) => api.post('/clients', payload).then((r) => r.data),
+  update: (id, payload) => api.patch(`/clients/${id}`, payload).then((r) => r.data),
+  topup: (id, payload) => api.post(`/clients/${id}/topup`, payload).then((r) => r.data),
+  usage: (id, params) => api.get(`/clients/${id}/usage`, { params }).then((r) => r.data),
+  delete: (id) => api.delete(`/clients/${id}`).then((r) => r.data)
+};
+
 // ---------- User endpoints ----------
 export const UsersAPI = {
   list: () => api.get('/users').then((r) => r.data),

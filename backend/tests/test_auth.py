@@ -8,6 +8,7 @@ from app import create_app
 from core.config import settings as app_settings
 from core.database import init_db
 from core.security import hash_password
+from db.migrations import run_migrations
 from db.models import User
 
 
@@ -25,17 +26,18 @@ def _ensure_admin_user() -> None:
     from core.database import session_scope
 
     init_db()
+    run_migrations()
     with session_scope() as db:
         user = db.query(User).filter(User.username == app_settings.bootstrap_admin_username).first()
         if user is None:
-            db.add(
-                User(
-                    username=app_settings.bootstrap_admin_username,
-                    password_hash=hash_password("test-pass-123"),
-                    role="admin",
-                    is_active=True,
-                )
+            user = User(
+                username=app_settings.bootstrap_admin_username,
+                role="admin",
+                is_active=True,
             )
+            db.add(user)
+        # Always reset password so tests can log in with known creds
+        user.password_hash = hash_password("test-pass-123")
         db.commit()
 
 

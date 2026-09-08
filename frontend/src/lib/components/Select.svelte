@@ -1,5 +1,7 @@
 <script>
-  let { label = '', value = $bindable(''), options = [], placeholder = 'انتخاب کنید...', required = false, disabled = false, class: cls = '' } = $props();
+  import { _ } from '../i18n.js';
+
+  let { label = '', value = $bindable(''), options = [], placeholder = '', required = false, disabled = false, class: cls = '' } = $props();
 </script>
 
 <label class="block">

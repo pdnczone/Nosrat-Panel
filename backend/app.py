@@ -1,6 +1,7 @@
 """FastAPI application factory & entry point for the nosrat WebUI backend."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import logging.config
 import time
@@ -14,13 +15,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from api import auth, crypto, health, nodes, plugins, servers, settings as settings_api
+from api import auth, clients, crypto, health, nodes, plugins, servers, settings as settings_api
 from api import speed, stats, tunnels, users, ws
 from core.config import ensure_directories, settings
 from core.database import init_db
 from core.plugin_loader import plugin_registry
 from db.migrations import run_migrations
 from db.schemas import ErrorResponse, HealthInfo
+from services.usage import usage_loop
 
 
 # ── Logging configuration ──────────────────────────────────────────────────
@@ -84,7 +86,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     plugin_registry.load()
     logger.info("loaded %d plugin(s)", len(plugin_registry.list()))
 
+    usage_task = asyncio.create_task(usage_loop())
     yield
+    usage_task.cancel()
+    try:
+        await usage_task
+    except asyncio.CancelledError:
+        pass
 
     logger.info("shutting down")
 
@@ -182,6 +190,7 @@ def create_app() -> FastAPI:
 def _mount_routers(app: FastAPI) -> None:
     routers = [
         auth.router,
+        clients.router,
         crypto.router,
         health.router,
         nodes.router,

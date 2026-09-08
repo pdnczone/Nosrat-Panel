@@ -87,7 +87,8 @@ class Server(Base, TimestampMixin):
     )
 
     tunnels: Mapped[list["Tunnel"]] = relationship(
-        "Tunnel", back_populates="server", cascade="all, delete-orphan"
+        "Tunnel", back_populates="server", cascade="all, delete-orphan",
+        foreign_keys="Tunnel.server_id",
     )
 
     # ── Node agent state ───────────────────────────────────────────────
@@ -127,7 +128,16 @@ class Tunnel(Base, TimestampMixin):
     __tablename__ = "tunnels"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # A real tunnel has two physical endpoints (Iran + external exit).
+    # local_server_id = the Iran-side server, remote_server_id = the exit server.
+    # server_id is kept for backward-compat (single-ended tunnels / older data).
     server_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("servers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    local_server_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("servers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    remote_server_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("servers.id", ondelete="SET NULL"), nullable=True, index=True
     )
     plugin: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -143,10 +153,92 @@ class Tunnel(Base, TimestampMixin):
     )
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    server: Mapped[Optional[Server]] = relationship("Server", back_populates="tunnels")
+    server: Mapped[Optional[Server]] = relationship(
+        "Server", foreign_keys="Tunnel.server_id", back_populates="tunnels"
+    )
+    local_server: Mapped[Optional[Server]] = relationship(
+        "Server", foreign_keys="Tunnel.local_server_id"
+    )
+    remote_server: Mapped[Optional[Server]] = relationship(
+        "Server", foreign_keys="Tunnel.remote_server_id"
+    )
     logs: Mapped[list["TunnelLog"]] = relationship(
         "TunnelLog", back_populates="tunnel", cascade="all, delete-orphan"
     )
+    clients: Mapped[list["TunnelClient"]] = relationship(
+        "TunnelClient",
+        back_populates="tunnel",
+        cascade="all, delete-orphan",
+        foreign_keys="TunnelClient.tunnel_id",
+    )
+
+
+# ── Tunnel clients / subscriptions ─────────────────────────────────────────
+
+
+class TunnelClient(Base, TimestampMixin):
+    """A per-client (VPN subscriber) usage policy attached to a tunnel or server.
+
+    This is distinct from ``User`` (panel operator accounts). A client
+    represents a VPN subscriber with a data quota and an expiry window.
+    """
+
+    __tablename__ = "tunnel_clients"
+    __table_args__ = (
+        Index("ix_tunnel_clients_tunnel_name", "tunnel_id", "name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    # Attach to a tunnel or directly to a server (for whole-server plans).
+    tunnel_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("tunnels.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    server_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("servers.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # Optional per-peer id (e.g. WireGuard public key | GRE tunnel endpoint).
+    peer_identifier: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    quota_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    used_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="active", nullable=False, index=True
+    )  # active | over_quota | expired | disabled
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    tunnel: Mapped[Optional[Tunnel]] = relationship(
+        "Tunnel", back_populates="clients", foreign_keys=[tunnel_id]
+    )
+    usage: Mapped[list["UsageSample"]] = relationship(
+        "UsageSample", back_populates="client", cascade="all, delete-orphan"
+    )
+
+
+class UsageSample(Base):
+    """Per-client periodic consumption sample (rx+tx bytes)."""
+
+    __tablename__ = "usage_samples"
+    __table_args__ = (
+        Index("ix_usage_samples_client_ts", "client_id", "sampled_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[int] = mapped_column(
+        ForeignKey("tunnel_clients.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sampled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False, index=True
+    )
+    rx_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    tx_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    total_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    over_quota: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    client: Mapped[TunnelClient] = relationship("TunnelClient", back_populates="usage")
 
 
 # ── Tunnel Logs ─────────────────────────────────────────────────────────────
@@ -165,7 +257,7 @@ class TunnelLog(Base):
         DateTime(timezone=True), default=_utcnow, nullable=False, index=True
     )
 
-    tunnel: Mapped[Tunnel] = relationship("Tunnel", back_populates="logs")
+    tunnel: Mapped["Tunnel"] = relationship("Tunnel", back_populates="logs")
 
 
 # ── Settings KV ─────────────────────────────────────────────────────────────

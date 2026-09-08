@@ -1,5 +1,6 @@
 <script>
   import { fly, fade } from 'svelte/transition';
+  import { _ } from '../i18n.js';
 
   let { open = $bindable(false), title = '', size = 'md', closeOnBackdrop = true, children, footer = null } = $props();
 
@@ -23,13 +24,13 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
     transition:fade={{ duration: 150 }}
     onclick={close}
     role="presentation"
   >
     <div
-      class="w-full {sizeClass} bg-slate-900 border border-slate-800 rounded-xl shadow-2xl"
+      class="w-full {sizeClass} bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl"
       transition:fly={{ y: 20, duration: 200 }}
       onclick={(e) => e.stopPropagation()}
       role="dialog"
@@ -38,7 +39,7 @@
       {#if title}
         <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <h3 class="text-lg font-semibold text-slate-100">{title}</h3>
-          <button onclick={() => (open = false)} class="btn-ghost p-1 rounded-md" aria-label="بستن">
+          <button onclick={() => (open = false)} class="btn-ghost p-1 rounded-md" aria-label={$_('common.close')}>
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
           </button>
         </div>

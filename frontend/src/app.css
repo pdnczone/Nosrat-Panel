@@ -12,7 +12,7 @@
   }
 
   body {
-    @apply h-full font-sans;
+    @apply h-full font-sans bg-slate-950 text-slate-100 antialiased;
   }
 
   body[dir="ltr"] {
@@ -42,7 +42,11 @@
 
 @layer components {
   .card {
-    @apply bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-5;
+    @apply bg-slate-900/70 backdrop-blur-sm border border-slate-800/80 rounded-2xl shadow-card p-5 transition-shadow duration-200;
+  }
+
+  .card-hover:hover {
+    @apply shadow-card-hover border-slate-700/80;
   }
 
   .btn {
@@ -74,7 +78,7 @@
   }
 
   .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-medium;
   }
 
   .nav-link {
@@ -82,7 +86,7 @@
   }
 
   .nav-link-active {
-    @apply bg-primary-500/10 text-primary-400 border-r-2 border-primary-500;
+    @apply bg-primary-500/10 text-primary-400 border-s border-primary-500/40 shadow-glow;
   }
 }
 

@@ -6,9 +6,16 @@ from pathlib import Path
 from typing import Any
 
 from core.config import settings
-from core.subprocess import CommandError, run_nosrat
+from core.remote_exec import (
+    apply_tunnel_config,
+    run_on_both_endpoints,
+    run_on_server,
+    start_tunnel,
+    stop_tunnel,
+    tunnel_status,
+)
+from db.models import Server, Tunnel
 from plugins.base import Plugin
-
 
 logger = logging.getLogger("nosrat.plugins.gre_ipsec")
 
@@ -144,170 +151,152 @@ class GreIpsecPlugin(Plugin):
 
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
-    async def create(self, params: dict[str, Any]) -> dict[str, Any]:
-        cfg_path = self._config_path(params)
-        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    async def create(
+        self, tunnel: Tunnel | None, local: Server, remote: Server, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Persist configuration on both endpoints via agent/SSH."""
+        cfg = self._build_config(tunnel, local, remote, params)
 
-        psk_path = self._write_psk(params)
-
-        body = self._render_config(params, psk_path)
-        cfg_path.write_text(body, encoding="utf-8")
-        try:
-            cfg_path.chmod(0o600)
-        except OSError as exc:  # pragma: no cover
-            logger.warning("could not chmod %s: %s", cfg_path, exc)
+        # Send config to both endpoints
+        local_res, remote_res = await apply_tunnel_config(local, remote, self.name, cfg)
 
         return {
-            "config_path": str(cfg_path),
-            "psk_path": str(psk_path),
-            "preview": {"written": True},
+            "local": local_res,
+            "remote": remote_res,
+            "preview": {"written": True, "config": cfg},
         }
 
-    async def start(self, tunnel_id: int) -> dict[str, Any]:
-        result = await run_nosrat(
-            "start", timeout=settings.long_command_timeout_sec
+    async def start(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Start the tunnel on both endpoints."""
+        local_res, remote_res = await start_tunnel(local, remote, self.name)
+        return {
+            "local": local_res,
+            "remote": remote_res,
+            "status": "starting",
+        }
+
+    async def stop(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Stop the tunnel on both endpoints."""
+        local_res, remote_res = await stop_tunnel(local, remote, self.name)
+        return {
+            "local": local_res,
+            "remote": remote_res,
+            "status": "stopped",
+        }
+
+    async def restart(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Restart the tunnel on both endpoints."""
+        await self.stop(tunnel, local, remote)
+        return await self.start(tunnel, local, remote)
+
+    async def status(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Get status from both endpoints."""
+        local_res, remote_res = await tunnel_status(local, remote, self.name)
+        return {
+            "local": local_res,
+            "remote": remote_res,
+        }
+
+    async def logs(
+        self, tunnel: Tunnel, local: Server, remote: Server, *, lines: int = 100
+    ) -> str:
+        """Fetch logs from both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "journalctl", ["-u", "strongswan", "-u", "ipsec", "-n", str(lines), "--no-pager", "-q"]
         )
-        if result.returncode != 0:
-            raise CommandError(
-                "failed to start GRE/IPsec tunnel",
-                returncode=result.returncode,
-                stdout=result.stdout,
-                stderr=result.stderr,
-            )
-        return {"tunnel_id": tunnel_id, "status": "starting", "stdout": result.stdout}
+        return f"=== {local.name} ===\n{local_res.get('stdout', '')}\n\n=== {remote.name} ===\n{remote_res.get('stdout', '')}"
 
-    async def stop(self, tunnel_id: int) -> dict[str, Any]:
-        result = await run_nosrat("stop")
-        return {
-            "tunnel_id": tunnel_id,
-            "status": "stopping",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
-
-    async def restart(self, tunnel_id: int) -> dict[str, Any]:
-        result = await run_nosrat(
-            "restart", timeout=settings.long_command_timeout_sec
+    async def destroy(
+        self, tunnel: Tunnel, local: Server, remote: Server
+    ) -> dict[str, Any]:
+        """Remove all configuration on both endpoints."""
+        local_res, remote_res = await run_on_both_endpoints(
+            local, remote, "destroy_tunnel", [self.name]
         )
         return {
-            "tunnel_id": tunnel_id,
-            "status": "restarting",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
+            "local": local_res,
+            "remote": remote_res,
+            "destroyed": True,
         }
-
-    async def status(self, tunnel_id: int) -> dict[str, Any]:
-        result = await run_nosrat("status")
-        return {
-            "tunnel_id": tunnel_id,
-            "status": "unknown",
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "returncode": result.returncode,
-        }
-
-    async def logs(self, tunnel_id: int, *, lines: int = 100) -> str:
-        from core.subprocess import run
-
-        try:
-            result = await run(
-                [
-                    "journalctl",
-                    "-u",
-                    "nosrat",
-                    "-u",
-                    "strongswan",
-                    "-n",
-                    str(max(1, min(lines, 1000))),
-                    "--no-pager",
-                    "-q",
-                ],
-                timeout=15,
-            )
-            return result.stdout or result.stderr
-        except CommandError as exc:
-            return exc.stderr or str(exc)
-
-    async def destroy(self, tunnel_id: int) -> dict[str, Any]:
-        from core.subprocess import run
-
-        await run(["ip", "link", "del", "nosrat"], check=False)
-        await run(["rm", "-f", settings.config_file, settings.psk_file], check=False)
-        return {"tunnel_id": tunnel_id, "destroyed": True}
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
-    @staticmethod
-    def _config_path(params: dict[str, Any]) -> Path:
-        override = params.get("config_path")
-        if override:
-            return Path(override)
-        return Path(settings.config_file)
+    def _build_config(
+        self, tunnel: Tunnel, local: Server, remote: Server, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build the full tunnel configuration dict for both endpoints."""
+        import yaml
 
-    @staticmethod
-    def _write_psk(params: dict[str, Any]) -> Path:
-        mode = params.get("psk_mode", "generate_256")
-        psk_path = Path(params.get("psk_path") or settings.psk_file)
-        psk_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Determine which side is Iran vs External based on server role/location
+        # The wizard 'role' param tells us which role THIS server has
+        # But we need config for both sides
+        local_is_iran = params.get("role") == "iran"
 
-        if mode == "manual":
-            value = (params.get("psk_value") or "").strip()
-            if not value:
-                raise ValueError("psk_value required when psk_mode=manual")
-            psk = value
+        if local_is_iran:
+            iran_server = local
+            external_server = remote
+            iran_gre_ip = params["local_gre_ip"]
+            external_gre_ip = params["remote_gre_ip"]
+            iran_public = params["local_public_ip"]
+            external_public = params["remote_public_ip"]
         else:
-            from core.security import generate_psk
+            iran_server = remote
+            external_server = local
+            iran_gre_ip = params["remote_gre_ip"]
+            external_gre_ip = params["local_gre_ip"]
+            iran_public = params["remote_public_ip"]
+            external_public = params["local_public_ip"]
 
-            bits = 512 if mode == "generate_512" else 256
+        # Generate PSK
+        from core.security import generate_psk
+
+        psk_mode = params.get("psk_mode", "generate_256")
+        bits = 512 if psk_mode == "generate_512" else 256
+        if psk_mode == "manual":
+            psk = params.get("psk_value", "").strip()
+            if not psk:
+                raise ValueError("psk_value required when psk_mode=manual")
+        else:
             psk = generate_psk(bits)
 
-        psk_path.write_text(psk, encoding="utf-8")
-        try:
-            psk_path.chmod(0o600)
-        except OSError:  # pragma: no cover
-            pass
-        return psk_path
+        # Build config for agent-side apply_tunnel_config handler
+        return {
+            "plugin": self.name,
+            "tunnel_id": getattr(tunnel, "id", "temp"),
+            "tunnel_name": getattr(tunnel, "name", f"gre-{params.get('role', 'unknown')}-init"),
+            "psk": psk,
+            "ipsec": {
+                "encryption": params.get("encryption", "aes256gcm16"),
+                "dh_group": int(params.get("dh_group", 14)),
+                "rekey_seconds": int(params.get("rekey_seconds", 3600)),
+            },
+            "iran": {
+                "server_id": iran_server.id,
+                "public_ip": iran_public,
+                "gre_ip": iran_gre_ip,
+            },
+            "external": {
+                "server_id": external_server.id,
+                "public_ip": external_public,
+                "gre_ip": external_gre_ip,
+            },
+            "mtu": 1400,
+            "keepalive": {"enabled": True, "interval": 10},
+        }
 
     @staticmethod
-    def _render_config(params: dict[str, Any], psk_path: Path) -> str:
-        import yaml  # local import — only needed when actually writing
+    async def run_on_both_endpoints(
+        local: Server, remote: Server, command: str, args: list[str], timeout: float = 30.0
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Helper to run a command on both endpoints."""
+        from core.remote_exec import run_on_both_endpoints
 
-        cfg = {
-            "tunnel": {"name": params.get("name", "nosrat")},
-            "local": {
-                "public_ip": params["local_public_ip"],
-                "gre_ip": params["local_gre_ip"],
-            },
-            "remote": {
-                "public_ip": params["remote_public_ip"],
-                "gre_ip": params["remote_gre_ip"],
-            },
-            "ipsec": {
-                "ike_version": 2,
-                "mode": "transport",
-                "encryption": params.get("encryption", "aes256gcm16"),
-                "integrity": "",
-                "dh_group": int(params.get("dh_group", 14)),
-                "psk_file": str(psk_path),
-                "rekey_seconds": int(params.get("rekey_seconds", 3600)),
-                "dpd_delay": 10,
-                "dpd_timeout": 30,
-            },
-            "routing": {"enabled": True, "static_routes": []},
-            "firewall": {"enabled": True, "allow_ssh": True},
-            "mtu": {"value": 1400, "mss_clamp": True},
-            "keepalive": {"enabled": True, "interval": 10},
-            "health": {
-                "interval_seconds": 15,
-                "latency_threshold_ms": 200,
-                "loss_threshold_pct": 5,
-                "auto_recover": True,
-            },
-            "failover": {
-                "enabled": False,
-                "secondary_public_ip": "",
-                "switch_after_failures": 3,
-            },
-        }
-        return yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True)
+        return await run_on_both_endpoints(local, remote, command, args, timeout=timeout)
