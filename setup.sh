@@ -26,9 +26,13 @@ INSTALL_DIR="/opt/nosrat-panel"
 VENV_DIR="$INSTALL_DIR/venv"
 SERVICE_FILE="/etc/systemd/system/nosrat-panel-backend.service"
 NGINX_CONF="/etc/nginx/sites-available/nosrat-panel"
-REQUIRED_NODE_MAJOR=20
-REQUIRED_NODE_MINOR=19
-REQUIRED_NODE_VERSION="${REQUIRED_NODE_MAJOR}.${REQUIRED_NODE_MINOR}.0"
+
+# Minimum Node.js version required by frontend dependencies
+# puppeteer@25.10.0 requires node >=22.12.0
+REQUIRED_NODE_MAJOR=22
+REQUIRED_NODE_MINOR=12
+REQUIRED_NODE_PATCH=0
+REQUIRED_NODE_LABEL="${REQUIRED_NODE_MAJOR}.${REQUIRED_NODE_MINOR}.${REQUIRED_NODE_PATCH}"
 
 # ── Root check ────────────────────────────────────────────────────────────
 [[ $EUID -eq 0 ]] || die "Run as root: sudo bash setup.sh"
@@ -63,8 +67,29 @@ load_nvm() {
     return 1
 }
 
-# ── Node.js Version Check ─────────────────────────────────────────────────
-# Returns 0 if Node.js >= REQUIRED_NODE_VERSION is available
+# ── Node.js Version Check (numeric, not just major) ───────────────────────
+# Compares Node.js version against required minimum using numeric comparison.
+# Returns 0 if current Node.js >= REQUIRED_NODE_MAJOR.MINOR.PATCH
+node_version_satisfies() {
+    local current="$1"
+    local major minor patch
+    IFS='.' read -r major minor patch <<< "$current"
+    [[ -z "$major" || -z "$minor" ]] && return 1
+    patch="${patch:-0}"
+
+    if [[ "$major" -gt "$REQUIRED_NODE_MAJOR" ]]; then
+        return 0
+    elif [[ "$major" -eq "$REQUIRED_NODE_MAJOR" ]]; then
+        if [[ "$minor" -gt "$REQUIRED_NODE_MINOR" ]]; then
+            return 0
+        elif [[ "$minor" -eq "$REQUIRED_NODE_MINOR" ]]; then
+            [[ "$patch" -ge "$REQUIRED_NODE_PATCH" ]] && return 0
+        fi
+    fi
+    return 1
+}
+
+# Returns 0 if a usable Node.js (>= required) is available
 check_node_version() {
     if ! command -v node &>/dev/null; then
         return 1
@@ -74,22 +99,19 @@ check_node_version() {
     if [[ -z "$version" ]]; then
         return 1
     fi
-    local major minor patch
-    IFS='.' read -r major minor patch <<< "$version"
-    if [[ "$major" -gt "$REQUIRED_NODE_MAJOR" ]] || \
-       [[ "$major" -eq "$REQUIRED_NODE_MAJOR" && "$minor" -ge "$REQUIRED_NODE_MINOR" ]]; then
-        log "Node.js v$version detected (>= v$REQUIRED_NODE_VERSION required) ✓"
+    if node_version_satisfies "$version"; then
+        log "Node.js v$version detected (>= v${REQUIRED_NODE_LABEL} required)"
         return 0
     fi
-    warn "Node.js v$version detected — need v$REQUIRED_NODE_VERSION+"
+    warn "Node.js v$version detected — project requires v${REQUIRED_NODE_LABEL}+"
     return 1
 }
 
-# ── Install Node.js via NodeSource (apt) ──────────────────────────────────
+# ── Install Node.js via apt/NodeSource ────────────────────────────────────
 install_node_apt() {
-    log "Installing Node.js v20 from NodeSource repository..."
+    log "Installing Node.js v${REQUIRED_NODE_MAJOR} from NodeSource repository..."
     apt-get update -qq
-    if curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3; then
+    if curl -fsSL "https://deb.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" | bash - 2>&1 | tail -3; then
         apt-get update -qq
         apt-get install -y --no-install-recommends nodejs
         log "Node.js $(node -v) installed via apt"
@@ -102,20 +124,27 @@ install_node_apt() {
 
 # ── Install Node.js via NVM ───────────────────────────────────────────────
 install_node_nvm() {
-    log "Installing Node.js v20 via NVM..."
+    log "Installing Node.js v${REQUIRED_NODE_MAJOR} via NVM..."
     # Install NVM if not present
     if [[ ! -d "/root/.nvm" ]] && [[ ! -d "$HOME/.nvm" ]]; then
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash - 2>&1 | tail -3
     fi
     load_nvm || { warn "NVM load failed"; return 1; }
-    
-    nvm install 20
-    nvm alias default 20
-    nvm use 20
-    
-    # Symlink to /usr/local/bin for system-wide access
+
+    # Install the "22" LTS line; nvm installs latest 22.x
+    nvm install 22
+    nvm alias default 22
+    nvm use 22
+
+    # Verify the installed version actually satisfies the requirement
+    if ! check_node_version; then
+        warn "NVM-installed Node.js $(node -v) still below v${REQUIRED_NODE_LABEL}"
+        return 1
+    fi
+
+    # Symlink for system-wide access
     local node_bin
-    node_bin=$(nvm which 20 2>/dev/null | head -1)
+    node_bin=$(nvm which 22 2>/dev/null | head -1)
     if [[ -n "$node_bin" ]]; then
         ln -sf "$node_bin" /usr/local/bin/node
         ln -sf "$(dirname "$node_bin")/npm" /usr/local/bin/npm
@@ -127,7 +156,9 @@ install_node_nvm() {
 
 # ── Install Node.js standalone binary (last resort) ───────────────────────
 install_node_standalone() {
-    log "Downloading standalone Node.js v${REQUIRED_NODE_VERSION} binary..."
+    # Use a known-good 22.x release >= 22.12.0
+    local node_release="22.12.0"
+    log "Downloading standalone Node.js v${node_release} binary..."
     local arch node_arch
     arch=$(uname -m)
     case "$arch" in
@@ -136,20 +167,23 @@ install_node_standalone() {
         armv7l)  node_arch="armv7l" ;;
         *) die "Unsupported architecture: $arch" ;;
     esac
-    local node_url="https://nodejs.org/dist/v${REQUIRED_NODE_VERSION}/node-v${REQUIRED_NODE_VERSION}-linux-${node_arch}.tar.xz"
+    local node_url="https://nodejs.org/dist/v${node_release}/node-v${node_release}-linux-${node_arch}.tar.xz"
     curl -fsSL "$node_url" | tar -xJ -C /usr/local --strip-components=1
-    log "Node.js $(node -v) installed standalone to /usr/local"
-    return 0
+    if check_node_version; then
+        log "Node.js $(node -v) installed standalone to /usr/local"
+        return 0
+    fi
+    warn "Standalone install failed"
+    return 1
 }
 
-# ── Ensure Node.js >= 20.19.0 ─────────────────────────────────────────────
+# ── Ensure Node.js >= 22.12.0 ─────────────────────────────────────────────
 ensure_node() {
-    # First, try to load NVM if available
+    # First, try to load NVM if available (so an NVM-managed node is found)
     load_nvm
-    
-    # Check if we already have a valid Node.js
+
+    # If we already have a valid Node.js, use it.
     if check_node_version; then
-        # Verify npm is also available
         if command -v npm &>/dev/null; then
             log "Using existing Node.js $(node -v) with npm $(npm -v)"
             return 0
@@ -157,29 +191,60 @@ ensure_node() {
             warn "Node.js found but npm missing"
         fi
     fi
-    
-    # No valid Node.js found - need to install
-    warn "No suitable Node.js found. Installing Node.js v20..."
-    
-    # Try apt (NodeSource) first on Debian/Ubuntu
+
+    # Node.js is missing OR below 22.12.0 — need to upgrade/install.
+    warn "No suitable Node.js found. Installing Node.js v${REQUIRED_NODE_MAJOR} (>= v${REQUIRED_NODE_LABEL})..."
+
+    # 1) If NVM exists, prefer upgrading via NVM (keeps NVM management intact)
+    if [[ -d "/root/.nvm" ]] || [[ -d "$HOME/.nvm" ]]; then
+        if install_node_nvm; then
+            return 0
+        fi
+        warn "NVM upgrade failed, trying apt fallback..."
+    fi
+
+    # 2) Try apt (NodeSource) on Debian/Ubuntu
     if [[ "$PKG_MGR" == "apt" ]]; then
         if install_node_apt; then
             return 0
         fi
         warn "apt install failed, trying NVM..."
     fi
-    
-    # Try NVM
+
+    # 3) NVM (if not already tried)
     if install_node_nvm; then
         return 0
     fi
-    
-    # Last resort: standalone binary
+
+    # 4) Last resort: standalone binary
     if install_node_standalone; then
         return 0
     fi
-    
-    die "All Node.js installation methods failed"
+
+    die "All Node.js installation methods failed (need >= v${REQUIRED_NODE_LABEL})"
+}
+
+# ── Verify Node.js & npm (numeric check) ──────────────────────────────────
+verify_node_npm() {
+    echo ""
+    echo -e "  ${CYAN}── Node.js & npm verification ──${NC}"
+    if ! command -v node &>/dev/null; then
+        die "node command not found"
+    fi
+    if ! command -v npm &>/dev/null; then
+        die "npm command not found"
+    fi
+
+    node -v
+    npm -v
+    command -v node
+    command -v npm
+
+    if ! check_node_version; then
+        die "Node.js $(node -v) does not meet project minimum v${REQUIRED_NODE_LABEL}. npm will NOT run."
+    fi
+    log "Node.js & npm verified (>= v${REQUIRED_NODE_LABEL})"
+    echo ""
 }
 
 # ── Step 1: Detect package manager ────────────────────────────────────────
@@ -203,34 +268,34 @@ export DEBIAN_FRONTEND=noninteractive
 
 if [[ "$PKG_MGR" == "apt" ]]; then
     apt-get update -qq
-    
-    # First, ensure we have Node.js >= 20.19.0
-    # This will use existing NVM Node.js if valid, otherwise install
+
+    # Ensure we have Node.js >= 22.12.0 (preserves NVM-installed node if valid)
     ensure_node
-    
+
     # Repair any broken package state
     log "Repairing package state..."
     apt-mark unhold nodejs npm 2>/dev/null || true
     dpkg --configure -a 2>/dev/null || true
     apt-get -f install -y 2>/dev/null || true
     apt-get update -qq
-    
-    # Install system dependencies
-    # NOTE: nodejs and npm are intentionally omitted if we already have valid Node.js
+
+    # Install system dependencies.
+    # NOTE: nodejs and npm are intentionally NOT listed here so that an
+    # NVM-managed Node/npm is never overwritten by the apt versions.
     log "Installing system dependencies (python3, nginx, certbot, git, etc.)..."
     apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \
         nginx certbot python3-certbot-nginx \
         git curl jq openssl 2>&1 | tail -5
-    
-    # Verify Node.js is still working
+
+    # Verify Node.js is still working and >= required
     if ! check_node_version; then
         warn "Node.js verification failed after apt install"
         ensure_node
     fi
-    
+
 elif [[ "$PKG_MGR" == "dnf" || "$PKG_MGR" == "yum" ]]; then
-    # On RHEL-based, install nodejs/npm via package manager
+    # On RHEL-based, ensure Node.js then install system deps
     ensure_node
     $PKG_MGR install -y python3 python3-pip \
         nginx certbot python3-certbot-nginx \
@@ -288,15 +353,12 @@ log "Python dependencies installed"
 header "Step 5/7: Building frontend"
 cd "$INSTALL_DIR/frontend"
 
-# Ensure NVM is loaded for npm
+# Ensure NVM is loaded (in case shell environment didn't have it)
 load_nvm
 
-# Verify Node.js and npm are available
-log "Verifying Node.js and npm..."
-node -v
-npm -v
-command -v node
-command -v npm
+# Final verification: Node.js >= 22.12.0 AND npm present.
+# If Node is too old, abort BEFORE running npm.
+verify_node_npm
 
 # Disable set -e for this section so individual failures don't abort install
 set +e
@@ -307,18 +369,18 @@ INSTALL_EXIT=$?
 if [[ $INSTALL_EXIT -ne 0 ]]; then
     echo -e "${YELLOW}[!]${NC} npm install failed (exit code: $INSTALL_EXIT)"
     if command -v node &>/dev/null; then
-        CURRENT_NODE=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$CURRENT_NODE" -lt 20 ]]; then
-            echo -e "${YELLOW}[!]${NC} CAUSE: Node.js v$CURRENT_NODE detected — frontend requires Node.js v20+"
-            echo -e "${YELLOW}[!]${NC} FIX: Run this to upgrade:"
-            echo -e "${CYAN}    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -${NC}"
-            echo -e "${CYAN}    apt-get install -y nodejs${NC}"
+        CURRENT_NODE=$(node -v | sed 's/^v//')
+        if ! node_version_satisfies "$CURRENT_NODE"; then
+            echo -e "${YELLOW}[!]${NC} CAUSE: Node.js v$CURRENT_NODE detected — frontend requires Node.js v${REQUIRED_NODE_LABEL}+"
+            echo -e "${YELLOW}[!]${NC} FIX: Install or upgrade Node.js:"
+            echo -e "${CYAN}    export NVM_DIR=\"/root/.nvm\" && [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"${NC}"
+            echo -e "${CYAN}    nvm install 22 && nvm use 22 && nvm alias default 22${NC}"
             echo -e "${YELLOW}[!]${NC} Then re-run: cd $INSTALL_DIR/frontend && npm install && npm run build"
         else
             echo -e "${YELLOW}[!]${NC} Check error messages above for details"
         fi
     else
-        echo -e "${YELLOW}[!]${NC} Node.js not found. Install v20+ and re-run build."
+        echo -e "${YELLOW}[!]${NC} Node.js not found. Install v${REQUIRED_NODE_LABEL}+ and re-run build."
     fi
     echo -e "${YELLOW}[!]${NC} Continuing anyway - frontend may need manual build later"
 fi
