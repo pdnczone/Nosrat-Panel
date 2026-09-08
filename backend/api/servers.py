@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db, session_scope
 from core.deps import get_current_user, record_audit, require_admin
 from core.ssh import SSHClient, SSHError
+from core.metadata_crypto import encrypt_metadata, decrypt_metadata
 from core.subprocess import CommandError, run
 from db.models import NodeInstallJob, Server, User
 from db.schemas import (
@@ -106,12 +107,12 @@ async def create_server(
     if db.query(Server).filter(Server.name == payload.name).first():
         raise HTTPException(status_code=409, detail="server name already exists")
     meta = dict(payload.metadata or {})
-    # Never echo raw credentials back through the response; stash them
-    # in the metadata JSON for the SSH layer to consume.
+    # Encrypt sensitive metadata fields before storing.
     if payload.ssh_private_key:
         meta["ssh_private_key"] = payload.ssh_private_key
     if payload.ssh_password:
         meta["ssh_password"] = payload.ssh_password
+    meta = encrypt_metadata(meta)
     server = Server(
         name=payload.name,
         host=payload.host,
@@ -173,6 +174,7 @@ async def update_server(
         meta["ssh_private_key"] = private_key
     if password:
         meta["ssh_password"] = password
+    meta = encrypt_metadata(meta)
     if new_metadata is not None:
         # Replace metadata only if the caller explicitly sent a dict; the
         # credentials above should still survive.

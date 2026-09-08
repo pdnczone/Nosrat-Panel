@@ -50,9 +50,19 @@ def _seed_admin(db: Session) -> None:
     if existing is not None:
         return
 
+    password = settings.bootstrap_admin_password
+    if not password:
+        import secrets as _secrets
+        password = _secrets.token_urlsafe(16)
+        logger.warning(
+            "Generated random bootstrap password for '%s': %s — CHANGE IT IMMEDIATELY!",
+            settings.bootstrap_admin_username,
+            password,
+        )
+
     admin = User(
         username=settings.bootstrap_admin_username,
-        password_hash=hash_password(settings.bootstrap_admin_password),
+        password_hash=hash_password(password),
         role="admin",
         is_active=True,
     )

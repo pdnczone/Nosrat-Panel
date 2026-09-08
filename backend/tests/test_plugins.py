@@ -6,14 +6,30 @@ from fastapi.testclient import TestClient
 
 from app import create_app
 from core.database import init_db
+from db.models import User
 
 
 @pytest.fixture(scope="module")
 def client() -> TestClient:
     init_db()
+    _ensure_admin()
     app = create_app()
     with TestClient(app) as c:
         yield c
+
+
+def _ensure_admin() -> None:
+    """Guarantee the admin user exists with the password used by these tests."""
+    from core.database import session_scope
+    from core.security import hash_password
+
+    with session_scope() as db:
+        user = db.query(User).filter(User.username == "admin").first()
+        if user is None:
+            db.add(User(username="admin", password_hash=hash_password("admin"), role="admin", is_active=True))
+        else:
+            user.password_hash = hash_password("admin")
+            user.is_active = True
 
 
 def _login(client: TestClient) -> str:

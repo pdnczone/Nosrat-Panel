@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     workers: int = 1
     reload: bool = False
     debug: bool = False
-    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    cors_origins: list[str] = Field(default_factory=list,
+    description="Allowed CORS origins. Empty list blocks all cross-origin requests.")
 
     # ── Database ──────────────────────────────────────────────────────────
     db_url: str = f"sqlite:///{BACKEND_DIR / 'data' / 'nosrat.db'}"
@@ -88,6 +89,43 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a cached Settings instance."""
     return Settings()
+
+
+settings = get_settings()
+
+
+def validate_production_settings() -> None:
+    """Fail fast in production if critical secrets are missing."""
+    if settings.environment != "production":
+        return
+    if settings.secret_key == "CHANGE-ME-IN-PRODUCTION-this-is-only-for-development":
+        raise RuntimeError(
+            "NOSRAT_SECRET_KEY must be set in production! "
+            "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+        )
+    if not settings.bootstrap_admin_password:
+        import secrets as _secrets
+        generated = _secrets.token_urlsafe(16)
+        settings.bootstrap_admin_password = generated
+        import logging as _log
+        _log.getLogger("nosrat.config").warning(
+            "NOSRAT_BOOTSTRAP_ADMIN_PASSWORD not set — generated random password: %s",
+            generated,
+        )
+    if "*" in settings.cors_origins and any(
+        getattr(o, "allow_credentials", True)
+        for o in [None]
+    ):
+        pass  # CORS check happens at app level
+
+
+def validate_cors_security() -> None:
+    """Warn if CORS is too permissive."""
+    import logging as _log
+    if "*" in settings.cors_origins:
+        _log.getLogger("nosrat.config").warning(
+            "CORS allows all origins ('*'). Restrict cors_origins in production!"
+        )
 
 
 settings = get_settings()

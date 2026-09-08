@@ -112,6 +112,11 @@ class SSHClient:
     async def connect(self) -> None:
         if self._conn is not None:
             return
+
+        # Decrypt encrypted metadata fields
+        private_key = decrypt_value(self._private_key) if self._private_key else None
+        password = decrypt_value(self._password) if self._password else None
+
         opts: dict[str, Any] = {
             "host": self.host,
             "port": self.port,
@@ -125,10 +130,10 @@ class SSHClient:
             opts["client_keys"] = [self._private_key_path]
         elif self._client_keys:
             opts["client_keys"] = self._client_keys
-        elif self._private_key:
-            opts["client_keys"] = [asyncssh.import_rsakey_from_string(self._private_key)]
-        elif self._password:
-            opts["password"] = self._password
+        elif private_key:
+            opts["client_keys"] = [asyncssh.import_rsakey_from_string(private_key)]
+        elif password:
+            opts["password"] = password
 
         try:
             self._conn = await asyncio.wait_for(
