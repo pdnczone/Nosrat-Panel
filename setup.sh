@@ -48,8 +48,23 @@ fi
 # ── Step 2: Install dependencies ──────────────────────────────────────────
 header "Step 2/7: Installing system dependencies"
 export DEBIAN_FRONTEND=noninteractive
+
+# Check Node.js version early
+if command -v node &>/dev/null; then
+    NODE_VER=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    if [[ "$NODE_VER" -lt 20 ]]; then
+        warn "Current Node.js version (v$(node -v | cut -d'v' -f2)) is too old."
+        warn "The frontend requires Node.js v20 or newer. Attempting to update..."
+    fi
+fi
+
 if [[ "$PKG_MGR" == "apt" ]]; then
     apt-get update -qq
+    # Try to install a newer Node.js from nodesource if on apt
+    if ! command -v node &>/dev/null || [[ "$NODE_VER" -lt 20 ]]; then
+        log "Installing Node.js v20 from NodeSource..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
+    fi
     apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv nodejs npm \
         nginx certbot python3-certbot-nginx \
@@ -116,14 +131,28 @@ log "Running npm install (this may take a few minutes)..."
 npm install --legacy-peer-deps --no-audit --no-fund 2>&1 | tail -10
 INSTALL_EXIT=$?
 if [[ $INSTALL_EXIT -ne 0 ]]; then
-    echo -e "${YELLOW}[!]${NC} npm install failed - check Node.js version (need 18+)"
+    echo -e "${YELLOW}[!]${NC} npm install failed (exit code: $INSTALL_EXIT)"
+    if command -v node &>/dev/null; then
+        CURRENT_NODE=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [[ "$CURRENT_NODE" -lt 20 ]]; then
+            echo -e "${YELLOW}[!]${NC} CAUSE: Node.js v$CURRENT_NODE detected — frontend requires Node.js v20+"
+            echo -e "${YELLOW}[!]${NC} FIX: Run this to upgrade:"
+            echo -e "${CYAN}    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -${NC}"
+            echo -e "${CYAN}    apt-get install -y nodejs${NC}"
+            echo -e "${YELLOW}[!]${NC} Then re-run: cd $INSTALL_DIR/frontend && npm install && npm run build"
+        else
+            echo -e "${YELLOW}[!]${NC} Check error messages above for details"
+        fi
+    else
+        echo -e "${YELLOW}[!]${NC} Node.js not found. Install v20+ and re-run build."
+    fi
     echo -e "${YELLOW}[!]${NC} Continuing anyway - frontend may need manual build later"
 fi
 log "Running npm build..."
 npm run build 2>&1 | tail -10
 BUILD_EXIT=$?
 if [[ $BUILD_EXIT -ne 0 ]]; then
-    echo -e "${YELLOW}[!]${NC} npm build failed - check error messages above"
+    echo -e "${YELLOW}[!]${NC} npm build failed (exit code: $BUILD_EXIT) - check error messages above"
     echo -e "${YELLOW}[!]${NC} Continuing anyway - you can rebuild manually later"
 fi
 log "Frontend built"
