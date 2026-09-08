@@ -78,6 +78,20 @@ NGINX_CONF="/etc/nginx/sites-available/nosrat-panel"
 # ── Root check ────────────────────────────────────────────────────────────
 [[ $EUID -eq 0 ]] || die "Run as root: sudo bash setup.sh"
 
+# ── PDNC Logo Banner ──────────────────────────────────────────────────────
+echo -e "${CYAN}"
+cat << 'EOF'
+ ____  ____  _   _  ____ 
+|  _ \|  _ \| \ | |/ ___|
+| |_) | | | |  \| | |    
+|  __/| |_| | |\  | |___ 
+|_|   |____/|_| \_|\____|
+                         
+EOF
+echo -e "${BOLD}NOSRAT WebUI Panel Installer${NC}"
+echo -e "${YELLOW}Secure, DPI-Resistant Multi-Server Tunnel Management${NC}"
+echo ""
+
 # ── Step 1: Detect package manager ────────────────────────────────────────
 header "Step 1/7: Detecting system"
 if command -v apt-get &>/dev/null; then
@@ -290,9 +304,9 @@ set -e
 
 # ── Final info ────────────────────────────────────────────────────────────
 echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║              ✅  nosrat-panel installed!                    ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Access the panel:${NC}"
 echo -e "    ${CYAN}http://$(hostname -I | awk '{print $1}')/${NC}"
@@ -311,5 +325,4 @@ echo -e "    ${CYAN}certbot --nginx -d yourdomain.com${NC}"
 echo ""
 echo -e "  ${YELLOW}📺 YouTube:${NC}    https://youtube.com/@PDNC30"
 echo -e "  ${YELLOW}📢 Telegram:${NC}   https://t.me/PDNCzone"
-echo -e "  ${YELLOW}💬 Support:${NC}    https://t.me/dncdirect"
 echo ""
