@@ -11,6 +11,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     gzip \
     ca-certificates \
+    iproute2 \
+    strongswan \
+    strongswan-charon \
+    libcharon-extra-plugins \
+    libcharon-extauth-plugins \
+    libstrongswan-extra-plugins \
     && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Install rathole (cached layer)

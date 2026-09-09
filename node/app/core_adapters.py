@@ -1231,6 +1231,104 @@ class GostAdapter:
         }
 
 
+
+class GreIpsecAdapter:
+    """GRE-over-IPsec tunnel adapter"""
+    name = "gre_ipsec"
+
+    def __init__(self):
+        self.config_dir = Path("/etc/nosrat-node/gre_ipsec")
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.interfaces = {}
+
+    def apply(self, tunnel_id: str, spec: Dict[str, Any]):
+        """Apply GRE-over-IPsec tunnel configuration"""
+        if tunnel_id in self.interfaces:
+            self.remove(tunnel_id)
+        
+        psk = spec.get("psk")
+        ipsec = spec.get("ipsec", {})
+        enc = ipsec.get("encryption", "aes256gcm16")
+        dh = ipsec.get("dh_group", 14)
+        rekey = ipsec.get("rekey_seconds", 3600)
+        local_pub = spec.get("local_public_ip")
+        remote_pub = spec.get("remote_public_ip")
+        local_gre = spec.get("local_gre_ip")
+        remote_gre = spec.get("remote_gre_ip")
+        mtu = spec.get("mtu", 1400)
+        
+        if not all([psk, local_pub, remote_pub, local_gre, remote_gre]):
+            raise ValueError("GRE/IPsec requires psk, local_public_ip, remote_public_ip, local_gre_ip, remote_gre_ip")
+        
+        conn_name = f"gre-{tunnel_id}"
+        local_gre_ip = local_gre.split("/")[0]
+        remote_gre_ip = remote_gre.split("/")[0]
+        
+        conf = f"""conn {conn_name}
+    type=transport
+    keyexchange=ikev2
+    left=%defaultroute
+    leftprotoport=47
+    right={remote_pub}
+    rightprotoport=47
+    auto=add
+    authby=secret
+    ike={enc},modp{dh}!
+    esp={enc},modp{dh}!
+"""
+        secrets = f"# PSK for {conn_name}\n: PSK \"{psk}\"\n"
+        try:
+            Path("/etc/ipsec.conf").write_text(conf, encoding="utf-8")
+            Path("/etc/ipsec.secrets").write_text(secrets, encoding="utf-8")
+        except OSError as exc:
+            logger.error(f"Failed to write IPsec config: {exc}")
+            raise
+        
+        gre_iface = "gre0"
+        subprocess.run(["ip", "link", "set", gre_iface, "down"], capture_output=True, timeout=5)
+        subprocess.run(["ip", "link", "delete", gre_iface], capture_output=True, timeout=5)
+        
+        subprocess.run(["ip", "link", "add", gre_iface, "type", "gre", "remote", remote_pub, "local", local_pub, "ttl", "255"], check=True, timeout=10)
+        subprocess.run(["ip", "addr", "add", local_gre, "dev", gre_iface], check=True, timeout=10)
+        subprocess.run(["ip", "link", "set", gre_iface, "up", "mtu", str(mtu)], check=True, timeout=10)
+        
+        self.interfaces[tunnel_id] = gre_iface
+        
+        subprocess.run(["systemctl", "restart", "strongswan"], capture_output=True, timeout=30)
+        subprocess.run(["ipsec", "up", conn_name], capture_output=True, timeout=30)
+
+    def remove(self, tunnel_id: str):
+        """Remove GRE-over-IPsec tunnel"""
+        if tunnel_id not in self.interfaces:
+            return
+        gre_iface = self.interfaces.pop(tunnel_id)
+        conn_name = f"gre-{tunnel_id}"
+        subprocess.run(["ip", "link", "set", gre_iface, "down"], capture_output=True, timeout=5)
+        subprocess.run(["ip", "link", "delete", gre_iface], capture_output=True, timeout=5)
+        subprocess.run(["ipsec", "down", conn_name], capture_output=True, timeout=30)
+
+    def status(self, tunnel_id: str) -> Dict[str, Any]:
+        """Get tunnel status"""
+        if tunnel_id not in self.interfaces:
+            return {"active": False}
+        gre_iface = self.interfaces[tunnel_id]
+        conn_name = f"gre-{tunnel_id}"
+        
+        gre_r = subprocess.run(["ip", "link", "show", gre_iface], capture_output=True, timeout=5)
+        gre_up = gre_r.returncode == 0 and "state UP" in gre_r.stdout.decode()
+        
+        ipsec_r = subprocess.run(["ipsec", "statusall"], capture_output=True, timeout=10)
+        ipsec_out = ipsec_r.stdout.decode()
+        sa_up = conn_name in ipsec_out and "ESTABLISHED" in ipsec_out
+        
+        return {
+            "active": gre_up and sa_up,
+            "gre_up": gre_up,
+            "ipsec_established": sa_up,
+            "type": "gre_ipsec"
+        }
+
+
 class AdapterManager:
     """Manager for core adapters"""
     
@@ -1241,6 +1339,7 @@ class AdapterManager:
             "chisel": ChiselAdapter(),
             "frp": FrpAdapter(),
             "gost": GostAdapter(),
+            "gre_ipsec": GreIpsecAdapter(),
         }
         self.active_tunnels: Dict[str, CoreAdapter] = {}
         self.config_dir = Path("/var/lib/nosrat-node")

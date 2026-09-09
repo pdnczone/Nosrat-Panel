@@ -152,7 +152,7 @@ async def create_tunnel(tunnel: TunnelCreate, request: Request, db: AsyncSession
         if ports:
             tunnel.spec["ports"] = ports
     
-    is_reverse_tunnel = tunnel.core in {"rathole", "backhaul", "chisel", "frp"}
+    is_reverse_tunnel = tunnel.core in {"rathole", "backhaul", "chisel", "frp", "gre_ipsec"}
     foreign_node = None
     iran_node = None
     
@@ -238,7 +238,7 @@ async def create_tunnel(tunnel: TunnelCreate, request: Request, db: AsyncSession
         needs_backhaul_server = False
         needs_chisel_server = False
         needs_frp_server = False
-        needs_node_apply = db_tunnel.core in {"rathole", "backhaul", "chisel", "frp"}
+        needs_node_apply = db_tunnel.core in {"rathole", "backhaul", "chisel", "frp", "gre_ipsec"}
         
         logger.info(
             "Tunnel %s: gost=%s, rathole=%s, backhaul=%s, chisel=%s, frp=%s",
@@ -414,6 +414,41 @@ async def create_tunnel(tunnel: TunnelCreate, request: Request, db: AsyncSession
                     if "remote_port" not in client_spec:
                         client_spec["remote_port"] = db_tunnel.spec.get("remote_port") or db_tunnel.spec.get("listen_port") or bind_port
                 
+            elif db_tunnel.core == "gre_ipsec":
+                iran_node_ip = iran_node.node_metadata.get("ip_address")
+                foreign_node_ip = foreign_node.node_metadata.get("ip_address")
+                if not iran_node_ip or not foreign_node_ip:
+                    db_tunnel.status = "error"
+                    db_tunnel.error_message = "Both nodes must have public IP addresses in metadata"
+                    await db.commit()
+                    await db.refresh(db_tunnel)
+                    return db_tunnel
+                
+                psk = server_spec.get("psk")
+                if not psk:
+                    import secrets
+                    psk = secrets.token_hex(32)
+                    server_spec["psk"] = psk
+                    db_tunnel.spec["psk"] = psk
+                    from sqlalchemy.orm.attributes import flag_modified
+                    flag_modified(db_tunnel, "spec")
+                
+                iran_gre = server_spec.get("iran_gre_ip", "10.200.0.1/30")
+                foreign_gre = server_spec.get("foreign_gre_ip", "10.200.0.2/30")
+                
+                # Foreign node spec (server)
+                server_spec["local_public_ip"] = foreign_node_ip
+                server_spec["remote_public_ip"] = iran_node_ip
+                server_spec["local_gre_ip"] = foreign_gre
+                server_spec["remote_gre_ip"] = iran_gre
+                server_spec["psk"] = psk
+                
+                # Iran node spec (client)
+                client_spec["local_public_ip"] = iran_node_ip
+                client_spec["remote_public_ip"] = foreign_node_ip
+                client_spec["local_gre_ip"] = iran_gre
+                client_spec["remote_gre_ip"] = foreign_gre
+                client_spec["psk"] = psk
             elif db_tunnel.core == "backhaul":
                 transport = server_spec.get("transport") or server_spec.get("type") or "tcp"
                 import hashlib
@@ -1327,7 +1362,7 @@ async def apply_tunnel(tunnel_id: str, request: Request, db: AsyncSession = Depe
     
     client = NodeClient()
     
-    is_reverse_tunnel = tunnel.core in {"rathole", "backhaul", "chisel", "frp"}
+    is_reverse_tunnel = tunnel.core in {"rathole", "backhaul", "chisel", "frp", "gre_ipsec"}
     foreign_node = None
     iran_node = None
     
