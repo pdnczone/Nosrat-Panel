@@ -1,234 +1,248 @@
-# nosrat-panel
+# Smite - Tunneling Control Panel
 
 <div align="center">
-
-**Modern, macOS-inspired tunnel management panel for nosrat**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00.svg)](https://svelte.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6.svg)](https://www.typescriptlang.org/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg)](https://tailwindcss.com/)
-
----
-
-🛡️ **GRE-over-IPsec** • 👻 **Ghost Tunnel** • 🔌 **Plugin System**
-
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](docs/) • [Screenshots](#-screenshots)
-
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/SmiteD.png"/>
+    <source media="(prefers-color-scheme: light)" srcset="assets/SmiteL.png"/>
+    <img src="assets/SmiteL.png" alt="Smite Logo" width="200"/>
+  </picture>
+  
+  **Modern tunnel management built on GOST, Backhaul, Rathole, Chisel, and FRP, featuring dual-node architecture, intuitive WebUI, real-time status tracking, and open-source freedom.**
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com/)
+  [![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://reactjs.org/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)](https://www.typescriptlang.org/)
+  [![Docker](https://img.shields.io/badge/Docker-24.0+-2496ED.svg)](https://www.docker.com/)
+  [![Nginx](https://img.shields.io/badge/Nginx-1.25+-009639.svg)](https://www.nginx.com/)
+  [![SQLite](https://img.shields.io/badge/SQLite-3.42+-003B57.svg)](https://www.sqlite.org/)
 </div>
 
 ---
 
-## ✨ Features
+## 🚀 Features
 
-- 🎨 **Modern Theme System** - Neon blue/purple accent palette, dark-mode-first, semantic spacing
-- 📐 **Standardised components** - All 15 shared components with `$bindable()` props + full i18n
-- 🌐 **Complete bilingual** - All 12 routes use `_('key')`; ~80 keys each in `en.json` / `fa.json`
-- 🔌 **Plugin System** - Add new tunnel types without modifying core (WireGuard, OpenVPN, custom protocols)
-- 🌍 **Multi-Server** - Manage tunnels across multiple remote servers from a single panel
-- 📡 **Real-time Updates** - WebSocket-based live status monitoring
-- 🔐 **JWT Authentication** - Secure, role-based access control (admin/operator/viewer)
-- 🌐 **Bilingual** - Full Persian (RTL) + English (LTR) support
-- 📊 **Live Metrics** - Real-time traffic, latency, and health monitoring
-- 🛠️ **Built-in Tunnel Types**:
-  - **GRE-over-IPsec** - Classic GRE tunnel with IKEv2/ESP encryption
-  - **Ghost Tunnel** - WireGuard + Cloak + Nginx (DPI-resistant)
-- 🔍 **Health Checks** - Quick check, detailed diagnosis, continuous monitoring
-- 🚄 **Speed Tests** - Ping latency, throughput, iperf3
-- 🔑 **Crypto Management** - PSK generation (256/512-bit), rotation, algorithm change
-- 🌓 **Dark + Light Mode** - macOS-style theming
-- 📱 **Responsive** - Works on desktop, tablet, mobile
-- 🐳 **Docker-ready** - systemd service with security hardening
+- **Multiple Tunnel Types**: Support for TCP, UDP, WebSocket, gRPC, TCPMux via GOST, Backhaul, Rathole, Chisel, and FRP
+- **Unified Node Management**: Iran and Foreign nodes are manageable from a single panel for reverse tunnels
+- **Web UI**: Modern, intuitive web interface with real-time connection status tracking
+- **CLI Tools**: Powerful command-line tools for management
+- **Telegram Bot**: Panel statistics and automatic backups via Telegram
+- **GOST Forwarding**: Forward traffic from Iran nodes to Foreign servers with support for TCP, UDP, WebSocket, gRPC, and TCPMux
 
 ---
 
-## 🚀 Quick Start
+## 📋 Prerequisites
 
-### One-line install
+- Docker and Docker Compose installed
+- For Iran servers, install Docker first:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
+  ```
+
+---
+
+## 🔧 Panel Installation
+
+### Quick Install
 
 ```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/pdnczone/nosrat-panel/main/setup.sh)"
+sudo bash -c "$(curl -sL https://raw.githubusercontent.com/zZedix/Smite/main/scripts/install.sh)"
 ```
 
-### Manual install
+<details>
+<summary><strong>Manual Install</strong></summary>
+
+1. Clone the repository:
+```bash
+git clone https://github.com/zZedix/Smite.git
+cd Smite
+```
+
+2. Copy environment file and configure:
+```bash
+cp .env.example .env
+# Edit .env with your settings
+```
+
+3. Install CLI tools:
+```bash
+sudo bash cli/install_cli.sh
+```
+
+4. Start services:
+```bash
+docker compose up -d
+```
+
+5. Create admin user:
+```bash
+smite admin create
+```
+
+6. Access the web interface at `http://localhost:8000`
+
+</details>
+
+---
+
+## 🖥️ Node Installation
+
+### Architecture
+
+- **Iran Nodes**: Handle reverse tunnels (Rathole, Backhaul, Chisel, FRP) and run GOST forwarders
+- **Foreign Nodes**: Participate in reverse tunnels and receive forwarded traffic from Iran nodes
+
+### Quick Install
 
 ```bash
-git clone https://github.com/pdnczone/nosrat-panel.git
-cd nosrat-panel
-sudo bash setup.sh
+sudo bash -c "$(curl -sL https://raw.githubusercontent.com/zZedix/Smite/main/scripts/smite-node.sh)"
 ```
 
-Access: `http://YOUR_SERVER_IP/`
-Default credentials: `admin` / `admin` (change immediately!)
+<details>
+<summary><strong>Manual Install</strong></summary>
 
----
-
-## 📦 What's Included
-
-```
-nosrat-panel/
-├── backend/          # FastAPI + SQLAlchemy + JWT (4,543 lines, 38 files)
-│   ├── api/         # REST endpoints + WebSocket
-│   ├── core/        # config, security, subprocess, plugin loader
-│   ├── db/          # SQLAlchemy models + schemas + migrations
-│   └── plugins/     # gre_ipsec, ghost_tunnel, wireguard_native
-├── frontend/         # Svelte 5 + Vite + Tailwind (3,855 lines, 38 files)
-│   ├── src/lib/     # api, auth, ws, theme, i18n, components
-│   ├── src/routes/  # 12 pages (Login, Dashboard, Tunnels, etc.)
-│   └── public/      # locales (fa, en), favicon
-├── systemd/          # systemd service + nginx config (hardened)
-├── docs/             # Installation, User Guide, Plugin Dev, API, Security
-├── setup.sh          # 7-step idempotent installer
-└── README.md         # this file
-```
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Browser (WebUI)                          │
-│         Svelte 5 + Tailwind + macOS-inspired                │
-└──────────────────────┬───────────────────────────────────────┘
-                       │ HTTPS / WSS
-┌──────────────────────┴───────────────────────────────────────┐
-│                      Nginx (Reverse Proxy)                    │
-│              /api/*  →  FastAPI  (port 8000)                 │
-│              /ws     →  WebSocket (port 8000)                │
-│              /       →  Static frontend (dist/)              │
-└──────────────────────┬───────────────────────────────────────┘
-                       │
-┌──────────────────────┴───────────────────────────────────────┐
-│                FastAPI Backend (Python)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   API Layer  │  │ AI / Crypto  │  │   Plugins    │      │
-│  │   (REST+WS)  │  │   Services   │  │  (gre_ipsec, │      │
-│  │              │  │              │  │   ghost, ...) │      │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         └──────────────────┴──────────────────┘              │
-│                    ┌──────────────┐                          │
-│                    │  Repositories│                          │
-│                    └──────┬───────┘                          │
-│                           │                                  │
-│                    ┌──────┴───────┐                          │
-│                    │   SQLite    │                          │
-│                    └──────────────┘                          │
-└──────────────────────┬───────────────────────────────────────┘
-                       │ SSH / subprocess
-┌──────────────────────┴───────────────────────────────────────┐
-│              Remote Servers (nosrat nodes)                    │
-│         /etc/nosrat/ + nosrat CLI + tunnels                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Installation](docs/INSTALLATION.md) | Detailed setup, SSL/HTTPS, troubleshooting |
-| [User Guide](docs/USER_GUIDE.md) | Bilingual (fa + en) - Login, servers, tunnels, health, speed, users |
-| [Plugin Development](docs/PLUGIN_DEVELOPMENT.md) | Create your own tunnel type |
-| [API Reference](docs/API.md) | REST endpoints + WebSocket protocol |
-| [Security](docs/SECURITY.md) | JWT, bcrypt, HTTPS, rate limiting, threat model |
-
----
-
-## 🔌 Plugin System
-
-Add a new tunnel type in 3 steps:
-
-1. **Create plugin folder**: `backend/plugins/my_tunnel/`
-2. **Write `manifest.json`** (metadata)
-3. **Write `wizard_schema.json`** (UI form fields)
-4. **Implement `plugin.py`** (extends `PluginBase`)
-
-The frontend **auto-discovers** your plugin and renders the wizard form from your schema.
-
-Example: see `backend/plugins/wireguard_native/` for a minimal plugin.
-
----
-
-## 🛠️ Development
-
-### Backend
-
+1. Navigate to node directory:
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app:app --reload --port 8000
+cd node
 ```
 
-### Frontend
-
+2. Copy Panel CA certificate:
 ```bash
-cd frontend
-npm install
-npm run dev  # http://localhost:5173
+mkdir -p certs
+# For Iran nodes, use ca.crt
+cp /path/to/panel/ca.crt certs/ca.crt
+# For Foreign servers, use ca-server.crt
+# cp /path/to/panel/ca-server.crt certs/ca.crt
 ```
 
-### Running tests
-
+3. Create `.env` file:
 ```bash
-cd backend
-pytest
+cat > .env << EOF
+NODE_API_PORT=8888
+NODE_NAME=node-1
+PANEL_CA_PATH=/etc/smite-node/certs/ca.crt
+PANEL_ADDRESS=panel.example.com:443
+EOF
 ```
 
----
+> **Note**: The panel validates node roles during registration. Each node must have a consistent role (iran or foreign) to prevent conflicts.
 
-## 🐛 Troubleshooting
-
+4. Start node:
 ```bash
-# Backend logs
-sudo journalctl -u nosrat-panel-backend -f
+docker compose up -d
+```
 
-# Nginx logs
-sudo tail -f /var/log/nginx/error.log
+</details>
 
-# Restart everything
-sudo systemctl restart nosrat-panel-backend nginx
+---
+
+## 🛠️ CLI Tools
+
+### Panel CLI (`smite`)
+
+**Admin Management:**
+```bash
+smite admin create      # Create admin user
+smite admin update      # Update admin password
+```
+
+**Panel Management:**
+```bash
+smite status            # Show system status
+smite update            # Update panel (pull images and recreate)
+smite restart           # Restart panel (recreate to pick up .env changes)
+smite logs              # View panel logs
+```
+
+**Configuration:**
+```bash
+smite edit              # Edit docker-compose.yml
+smite edit-env          # Edit .env file
+```
+
+### Node CLI (`smite-node`)
+
+**Node Management:**
+```bash
+smite-node status       # Show node status
+smite-node update       # Update node (pull images and recreate)
+smite-node restart      # Restart node (recreate to pick up .env changes)
+smite-node logs         # View node logs
+```
+
+**Configuration:**
+```bash
+smite-node edit         # Edit docker-compose.yml
+smite-node edit-env     # Edit .env file
 ```
 
 ---
 
-## 🧭 Changelog
+## 📖 Tunnel Types
 
-### This release (2026-09-08)
-- **Frontend** – Tailwind custom neon blue/purple palette, `darkMode: 'class'`, restructured `app.css` with `@layer base` + `color-scheme: dark` + spacing scale; 15 shared components hardened; 12 routes switched to `_(key)` i18n (80-key `en.json` / `fa.json`)
-- **Backend** – SSH credential flow centralized via `core/ssh_utils.decrypt_metadata`; node agent lifecycle (`apply_tunnel_config` / `start_tunnel` / `stop_tunnel` / `tunnel_status` / `destroy_tunnel`) fixed; `core/remote_exec` added for agent-bus vs SSH dispatch; migrations for tunnels + nodes
-- **Verification** – `frontend` build passes (`vite`); **21/21 backend tests pass** (14 existing + 6 new e2e: Iran/External servers → `gre_ipsec` tunnel → start/status → 10 GB client quota → `over_quota` enforcement)
+### GOST Tunnels (Iran Node Forwarding)
+- **TCP**: Simple TCP forwarding
+- **UDP**: UDP packet forwarding
+- **WebSocket (WS)**: WebSocket protocol forwarding
+- **gRPC**: gRPC protocol forwarding
+- **TCPMux**: TCP multiplexing for multiple connections
+
+GOST tunnels run on Iran nodes and forward traffic to Foreign servers. When creating a GOST tunnel, specify both an Iran node and a Foreign server. The Iran node will listen on the specified port and forward all traffic to the Foreign server's IP address and port.
+
+### Backhaul Tunnels (Reverse Tunnel)
+- **TCP / UDP**: Low-latency reverse tunnels with optional UDP-over-TCP
+- **WS / WSMux**: WebSocket transports for CDN-friendly deployments
+- **TCPMux**: TCP multiplexing support
+- **Advanced Controls**: Configure multiplexing, keepalive, sniffer, and custom port maps per tunnel
+
+The panel automatically configures both Iran and Foreign nodes when creating a tunnel.
+
+### Rathole Tunnels (Reverse Tunnel)
+- **TCP**: Standard TCP reverse tunnel
+- **WebSocket (WS)**: WebSocket transport support
+
+Rathole tunnels allow you to expose services running on the Foreign node's network through the Iran node.
+
+### Chisel Tunnels (Reverse Tunnel)
+Chisel tunnels provide fast TCP reverse tunnel functionality, enabling you to expose services running on the Foreign node's network through the Iran node with high performance.
+
+### FRP Tunnels (Reverse Tunnel)
+FRP (Fast Reverse Proxy) tunnels provide reliable TCP/UDP reverse tunnel functionality. FRP supports both TCP and UDP protocols, with optional IPv6 support for tunneling IPv6 traffic over IPv4 networks.
 
 ---
 
-## 📜 License
+## 📝 License
 
-MIT © [PDNC](https://github.com/pdnczone)
-
----
-
-## 💖 Credits
-
-- Built with [FastAPI](https://fastapi.tiangolo.com/), [Svelte 5](https://svelte.dev/), [TailwindCSS](https://tailwindcss.com/)
-- UI inspired by [macOS Sonoma](https://www.apple.com/macos/sonoma/)
-- Part of the [nosrat](https://github.com/pdnczone/nosrat) ecosystem
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🔗 Related
+## 💰 Donations
 
-- [nosrat](https://github.com/pdnczone/nosrat) - The CLI tunnel manager this panel controls
-- [Heshmat](https://github.com/pdnczone/Heshmat) - Telegram support bot
+If you find Smite useful and want to support its development, consider making a donation:
+
+### Cryptocurrency Donations
+
+- **Bitcoin (BTC)**: `bc1q637gahjssmv9g3903j88tn6uyy0w2pwuvsp5k0`
+- **Ethereum (ETH)**: `0x5B2eE8970E3B233F79D8c765E75f0705278098a0`
+- **Tron (TRX)**: `TSAsosG9oHMAjAr3JxPQStj32uAgAUmMp3`
+- **USDT (BEP20)**: `0x5B2eE8970E3B233F79D8c765E75f0705278098a0`
+- **TON**: `UQA-95WAUn_8pig7rsA9mqnuM5juEswKONSlu-jkbUBUhku6`
+
+### Other Ways to Support
+
+- ⭐ Star the repository if you find it useful
+- 🐛 Report bugs and suggest improvements
+- 📖 Improve documentation and translations
+- 🔗 Share with others who might benefit
 
 ---
 
 <div align="center">
-
-📺 [YouTube: @PDNC30](https://youtube.com/@PDNC30) • 📢 [Telegram: @PDNCzone](https://t.me/PDNCzone) • 💬 [Support](https://t.me/dncdirect)
-
+  
+  **Made with ❤️ by [zZedix](https://github.com/zZedix)**
+  
+  *Securing the digital world, one line of code at a time!*
+  
 </div>
