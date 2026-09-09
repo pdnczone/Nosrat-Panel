@@ -1,248 +1,244 @@
-# Smite - Tunneling Control Panel
+# Nosrat Panel
 
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/SmiteD.png"/>
-    <source media="(prefers-color-scheme: light)" srcset="assets/SmiteL.png"/>
-    <img src="assets/SmiteL.png" alt="Smite Logo" width="200"/>
-  </picture>
-  
-  **Modern tunnel management built on GOST, Backhaul, Rathole, Chisel, and FRP, featuring dual-node architecture, intuitive WebUI, real-time status tracking, and open-source freedom.**
-  
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-  [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com/)
-  [![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://reactjs.org/)
-  [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)](https://www.typescriptlang.org/)
-  [![Docker](https://img.shields.io/badge/Docker-24.0+-2496ED.svg)](https://www.docker.com/)
-  [![Nginx](https://img.shields.io/badge/Nginx-1.25+-009639.svg)](https://www.nginx.com/)
-  [![SQLite](https://img.shields.io/badge/SQLite-3.42+-003B57.svg)](https://www.sqlite.org/)
+
+**پنل مدیریت تانل‌های امن و مقاوم به سانسور — معماری مدرن دو-نود، رابط وب سفارشی، و آزادی متن‌باز**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00.svg)](https://svelte.dev/)
+[![Docker](https://img.shields.io/badge/Docker-24.0+-2496ED.svg)](https://www.docker.com/)
+[![Nginx](https://img.shields.io/badge/Nginx-1.25+-009639.svg)](https://www.nginx.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-3.42+-003B57.svg)](https://www.sqlite.org/)
+
 </div>
 
 ---
 
-## 🚀 Features
+## 🚀 امکانات
 
-- **Multiple Tunnel Types**: Support for TCP, UDP, WebSocket, gRPC, TCPMux via GOST, Backhaul, Rathole, Chisel, and FRP
-- **Unified Node Management**: Iran and Foreign nodes are manageable from a single panel for reverse tunnels
-- **Web UI**: Modern, intuitive web interface with real-time connection status tracking
-- **CLI Tools**: Powerful command-line tools for management
-- **Telegram Bot**: Panel statistics and automatic backups via Telegram
-- **GOST Forwarding**: Forward traffic from Iran nodes to Foreign servers with support for TCP, UDP, WebSocket, gRPC, and TCPMux
+- **۵ نوع تانل:** TCP، UDP، WebSocket، gRPC، TCPMux از طریق **GOST, Backhaul, Rathole, Chisel, FRP**
+- **مدیریت یکپارچه نودها:** نودهای ایران و خارج از یک پنل واحد قابل مدیریت هستند
+- **رابط وب مدرن:** Svelte 5 + Tailwind CSS با طراحی تاریک حرفه‌ای و نورون آبی/بنفش
+- **CLI Tools:** ابزارهای خط فرمان `nosrat` و `nosrat-node`
+- **Telegram Bot:** آمار پنل و بکاپ خودکار از طریق تلگرام
+- **SSH Management:** تست اتصال، ترمینال زنده و نصب خودکار نود
+- **مقایسه عددی نسخه Node.js:** نصب ایمن با پشتیبانی NVM
+- **Docker-native:** استقرار با Docker Compose و شبکه‌ی Host
+- **BBR + Sysctl:** بهینه‌سازی خودکار شبکه برای پایداری تانل‌ها
 
 ---
 
-## 📋 Prerequisites
+## 📋 پیش‌نیازها
 
-- Docker and Docker Compose installed
-- For Iran servers, install Docker first:
+- **سرور:** Ubuntu 22.04+ یا Debian 12+
+- **Docker & Docker Compose** (به‌صورت خودکار نصب می‌شود)
+- **Node.js 22+** (برای بیلد فرانت‌اند — اگر NVM نصب باشد، خودکار استفاده می‌شود)
+- برای سرورهای ایرانی:
   ```bash
   curl -fsSL https://raw.githubusercontent.com/manageitir/docker/main/install-ubuntu.sh | sh
   ```
 
 ---
 
-## 🔧 Panel Installation
+## 🔧 نصب پنل
 
-### Quick Install
+### نصب سریع
 
 ```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/zZedix/Smite/main/scripts/install.sh)"
+sudo bash -c "$(curl -sL https://raw.githubusercontent.com/pdnczone/Nosrat-Panel/main/setup.sh)"
 ```
+
+### نصب دستی
 
 <details>
-<summary><strong>Manual Install</strong></summary>
+<summary><strong>مراحل نصب دستی</strong></summary>
 
-1. Clone the repository:
+1. کلون مخزن:
 ```bash
-git clone https://github.com/zZedix/Smite.git
-cd Smite
+git clone https://github.com/pdnczone/Nosrat-Panel.git
+cd Nosrat-Panel
 ```
 
-2. Copy environment file and configure:
+2. نصب سرویس‌ها با Docker:
 ```bash
-cp .env.example .env
-# Edit .env with your settings
+sudo bash setup.sh
 ```
 
-3. Install CLI tools:
+3. نصب CLI ابزارها:
 ```bash
 sudo bash cli/install_cli.sh
 ```
 
-4. Start services:
+4. ساخت ادمین:
 ```bash
-docker compose up -d
+nosrat admin create
 ```
 
-5. Create admin user:
-```bash
-smite admin create
+5. دسترسی به پنل:
 ```
-
-6. Access the web interface at `http://localhost:8000`
+http://localhost:8000
+```
 
 </details>
 
 ---
 
-## 🖥️ Node Installation
+## 🖥️ نصب نود
 
-### Architecture
+### معماری
 
-- **Iran Nodes**: Handle reverse tunnels (Rathole, Backhaul, Chisel, FRP) and run GOST forwarders
-- **Foreign Nodes**: Participate in reverse tunnels and receive forwarded traffic from Iran nodes
+- **نودهای ایران:** مدیریت تانل‌های معکوس (Rathole, Backhaul, Chisel, FRP) و اجرای GOST Forwarder
+- **نودهای خارج:** مشارکت در تانل‌های معکوس و دریافت ترافیک از نودهای ایران
 
-### Quick Install
+### نصب سریع نود
 
 ```bash
-sudo bash -c "$(curl -sL https://raw.githubusercontent.com/zZedix/Smite/main/scripts/smite-node.sh)"
+sudo bash -c "$(curl -sL https://raw.githubusercontent.com/pdnczone/Nosrat-Panel/main/scripts/nosrat-node.sh)"
 ```
 
-<details>
-<summary><strong>Manual Install</strong></summary>
+### نصب دستی نود
 
-1. Navigate to node directory:
+<details>
+<summary><strong>مراحل نصب دستی نود</strong></summary>
+
+1. وارد شدن به دایرکتوری نود:
 ```bash
 cd node
 ```
 
-2. Copy Panel CA certificate:
+2. کپی گواهی CA پنل:
 ```bash
 mkdir -p certs
-# For Iran nodes, use ca.crt
-cp /path/to/panel/ca.crt certs/ca.crt
-# For Foreign servers, use ca-server.crt
-# cp /path/to/panel/ca-server.crt certs/ca.crt
+# برای نودهای ایران:
+cp /path/to/panel/certs/ca.crt certs/ca.crt
+# برای سرورهای خارج:
+# cp /path/to/panel/certs/ca-server.crt certs/ca.crt
 ```
 
-3. Create `.env` file:
+3. ایجاد فایل `.env`:
 ```bash
 cat > .env << EOF
 NODE_API_PORT=8888
 NODE_NAME=node-1
-PANEL_CA_PATH=/etc/smite-node/certs/ca.crt
+PANEL_CA_PATH=/etc/nosrat-node/certs/ca.crt
 PANEL_ADDRESS=panel.example.com:443
 EOF
 ```
 
-> **Note**: The panel validates node roles during registration. Each node must have a consistent role (iran or foreign) to prevent conflicts.
-
-4. Start node:
+4. اجرای نود:
 ```bash
 docker compose up -d
 ```
+
+> **نکته:** پنل نقش نودها (ایران یا خارج) را هنگام ثبت‌نام اعتبارسنجی می‌کند.
 
 </details>
 
 ---
 
-## 🛠️ CLI Tools
+## 🛠️ ابزارهای CLI
 
-### Panel CLI (`smite`)
+### پنل CLI (`nosrat`)
 
-**Admin Management:**
+**مدیریت ادمین:**
 ```bash
-smite admin create      # Create admin user
-smite admin update      # Update admin password
+nosrat admin create      # ساخت ادمین
+nosrat admin update      # بروزرسانی رمز عبور
 ```
 
-**Panel Management:**
+**مدیریت پنل:**
 ```bash
-smite status            # Show system status
-smite update            # Update panel (pull images and recreate)
-smite restart           # Restart panel (recreate to pick up .env changes)
-smite logs              # View panel logs
+nosrat status            # نمایش وضعیت سیستم
+nosrat update            # بروزرسانی پنل (pull + recreate)
+nosrat restart           # ری‌استارت پنل
+nosrat logs              # نمایش لاگ‌ها
 ```
 
-**Configuration:**
-```bash
-smite edit              # Edit docker-compose.yml
-smite edit-env          # Edit .env file
-```
+### نود CLI (`nosrat-node`)
 
-### Node CLI (`smite-node`)
-
-**Node Management:**
 ```bash
-smite-node status       # Show node status
-smite-node update       # Update node (pull images and recreate)
-smite-node restart      # Restart node (recreate to pick up .env changes)
-smite-node logs         # View node logs
-```
-
-**Configuration:**
-```bash
-smite-node edit         # Edit docker-compose.yml
-smite-node edit-env     # Edit .env file
+nosrat-node status       # وضعیت نود
+nosrat-node update       # بروزرسانی نود
+nosrat-node restart      # ری‌استارت نود
+nosrat-node logs         # نمایش لاگ نود
 ```
 
 ---
 
-## 📖 Tunnel Types
+## 📖 انواع تانل
 
-### GOST Tunnels (Iran Node Forwarding)
-- **TCP**: Simple TCP forwarding
-- **UDP**: UDP packet forwarding
-- **WebSocket (WS)**: WebSocket protocol forwarding
-- **gRPC**: gRPC protocol forwarding
-- **TCPMux**: TCP multiplexing for multiple connections
+### GOST (فورواردینگ نود ایران)
+- **TCP**: فورواردینگ ساده TCP
+- **UDP**: فورواردینگ پکت‌های UDP
+- **WebSocket (WS)**: فورواردینگ پروتکل WebSocket
+- **gRPC**: فورواردینگ پروتکل gRPC
+- **TCPMux**: مالتی‌پلکسینگ TCP برای اتصالات همزمان
 
-GOST tunnels run on Iran nodes and forward traffic to Foreign servers. When creating a GOST tunnel, specify both an Iran node and a Foreign server. The Iran node will listen on the specified port and forward all traffic to the Foreign server's IP address and port.
+تانل‌های GOST روی نودهای ایران اجرا می‌شوند و ترافیک را به سرورهای خارج فوروارد می‌کنند.
 
-### Backhaul Tunnels (Reverse Tunnel)
-- **TCP / UDP**: Low-latency reverse tunnels with optional UDP-over-TCP
-- **WS / WSMux**: WebSocket transports for CDN-friendly deployments
-- **TCPMux**: TCP multiplexing support
-- **Advanced Controls**: Configure multiplexing, keepalive, sniffer, and custom port maps per tunnel
+### Backhaul (تانل معکوس)
+- **TCP / UDP**: تانل معکوس کم‌تأخیر با گزینه UDP-over-TCP
+- **WS / WSMux**: WebSocket برای استقرار پس‌زمینه CDN
+- **TCPMux**: مالتی‌پلکسینگ TCP
+- **کنترل‌های پیشرفته:** تنظیم keepalive، sniffer، و پورت‌های سفارشی
 
-The panel automatically configures both Iran and Foreign nodes when creating a tunnel.
+### Rathole (تانل معکوس)
+- **TCP**: تانل معکوس استاندارد TCP
+- **WebSocket (WS)**: پشتیبانی از WebSocket
 
-### Rathole Tunnels (Reverse Tunnel)
-- **TCP**: Standard TCP reverse tunnel
-- **WebSocket (WS)**: WebSocket transport support
+### Chisel (تانل معکوس)
+تانل معکوس TCP پرسرعت برای اجرای سرویس‌ها از طریق نود ایران.
 
-Rathole tunnels allow you to expose services running on the Foreign node's network through the Iran node.
-
-### Chisel Tunnels (Reverse Tunnel)
-Chisel tunnels provide fast TCP reverse tunnel functionality, enabling you to expose services running on the Foreign node's network through the Iran node with high performance.
-
-### FRP Tunnels (Reverse Tunnel)
-FRP (Fast Reverse Proxy) tunnels provide reliable TCP/UDP reverse tunnel functionality. FRP supports both TCP and UDP protocols, with optional IPv6 support for tunneling IPv6 traffic over IPv4 networks.
+### FRP (تانل معکوس)
+فورواردینگ معکوس قابل اعتماد TCP/UDP با پشتیبانی از IPv6.
 
 ---
 
-## 📝 License
+## 🏗️ ساختار پروژه
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```
+Nosrat-Panel/
+├── frontend/            # رابط وب Svelte 5 + Vite + Tailwind
+├── panel/               # بک‌اند FastAPI + موتورهای تانل
+│   ├── app/
+│   │   ├── routers/     # API endpoints
+│   │   ├── gost_forwarder.py
+│   │   ├── backhaul_manager.py
+│   │   ├── rathole_server.py
+│   │   ├── chisel_server.py
+│   │   ├── frp_server.py
+│   │   ├── node_server.py
+│   │   └── telegram_bot.py
+│   └── Dockerfile
+├── node/                # ایجنت نود (Docker)
+├── scripts/             # اسکریپت‌های نصب
+├── cli/                 # ابزارهای خط فرمان
+├── nginx/               # کانفیگ Nginx
+├── setup.sh             # اسکریپت نصب اصلی
+└── docker-compose.yml   # استقرار سرویس‌ها
+```
 
 ---
 
-## 💰 Donations
+## 📝 لایسنس
 
-If you find Smite useful and want to support its development, consider making a donation:
+این پروژه تحت لایسنس MIT منتشر شده است — [LICENSE](LICENSE)
 
-### Cryptocurrency Donations
+---
 
-- **Bitcoin (BTC)**: `bc1q637gahjssmv9g3903j88tn6uyy0w2pwuvsp5k0`
-- **Ethereum (ETH)**: `0x5B2eE8970E3B233F79D8c765E75f0705278098a0`
-- **Tron (TRX)**: `TSAsosG9oHMAjAr3JxPQStj32uAgAUmMp3`
-- **USDT (BEP20)**: `0x5B2eE8970E3B233F79D8c765E75f0705278098a0`
-- **TON**: `UQA-95WAUn_8pig7rsA9mqnuM5juEswKONSlu-jkbUBUhku6`
+## 📺 ارتباط با ما
 
-### Other Ways to Support
-
-- ⭐ Star the repository if you find it useful
-- 🐛 Report bugs and suggest improvements
-- 📖 Improve documentation and translations
-- 🔗 Share with others who might benefit
+- **YouTube:** [PDNC](https://youtube.com/@PDNC30)
+- **Telegram:** [PDNCzone](https://t.me/PDNCzone)
 
 ---
 
 <div align="center">
-  
-  **Made with ❤️ by [zZedix](https://github.com/zZedix)**
-  
-  *Securing the digital world, one line of code at a time!*
-  
+
+**ساخته شده با ❤️ توسط [PDNC](https://github.com/pdnczone)**
+
+*امنیت دیجیتال، یک خط کد در یک زمان!*
+
 </div>
