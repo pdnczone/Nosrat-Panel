@@ -73,7 +73,7 @@ class RatholeAdapter:
     name = "rathole"
     
     def __init__(self):
-        self.config_dir = Path("/etc/smite-node/rathole")
+        self.config_dir = Path("/etc/nosrat-node/rathole")
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.processes = {}
     
@@ -298,7 +298,7 @@ class BackhaulAdapter:
         binary_path: Optional[Path] = None,
     ):
         resolved_config = config_dir or Path(
-            os.environ.get("SMITE_BACKHAUL_CLIENT_DIR", "/etc/smite-node/backhaul")
+            os.environ.get("SMITE_BACKHAUL_CLIENT_DIR", "/etc/nosrat-node/backhaul")
         )
         self.config_dir = Path(resolved_config)
         self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -570,7 +570,7 @@ class ChiselAdapter:
     name = "chisel"
     
     def __init__(self):
-        self.config_dir = Path("/etc/smite-node/chisel")
+        self.config_dir = Path("/etc/nosrat-node/chisel")
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.processes = {}
         self.log_handles = {}
@@ -786,7 +786,7 @@ class FrpAdapter:
     name = "frp"
     
     def __init__(self):
-        self.config_dir = Path("/etc/smite-node/frp")
+        self.config_dir = Path("/etc/nosrat-node/frp")
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.processes = {}
         self.log_handles = {}
@@ -1047,7 +1047,7 @@ class GostAdapter:
     name = "gost"
     
     def __init__(self):
-        self.config_dir = Path("/etc/smite-node/gost")
+        self.config_dir = Path("/etc/nosrat-node/gost")
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.processes = {}
         self.log_handles = {}
@@ -1243,7 +1243,7 @@ class AdapterManager:
             "gost": GostAdapter(),
         }
         self.active_tunnels: Dict[str, CoreAdapter] = {}
-        self.config_dir = Path("/var/lib/smite-node")
+        self.config_dir = Path("/var/lib/nosrat-node")
         try:
             self.config_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Tunnel persistence directory: {self.config_dir} (exists: {self.config_dir.exists()}, writable: {self.config_dir.is_dir()})")

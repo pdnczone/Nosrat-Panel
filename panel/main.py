@@ -1,5 +1,5 @@
 """
-Smite Panel - Central Controller
+Nosrat Panel - Central Controller
 """
 import os
 import asyncio
@@ -736,8 +736,8 @@ async def _auto_reset_scheduler(app: FastAPI):
 
 
 app = FastAPI(
-    title="Smite Panel",
-    description="Tunneling Control Panel",
+    title="Nosrat Panel",
+    description="Secure Tunnel Management Panel",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs" if settings.docs_enabled else None,
@@ -793,7 +793,7 @@ async def root():
     if index_path.exists():
         from fastapi.responses import FileResponse
         return FileResponse(index_path)
-    return {"message": "Smite Panel API", "docs": "/docs"}
+    return {"message": "Nosrat Panel API", "docs": "/docs"}
 
 
 if __name__ == "__main__":

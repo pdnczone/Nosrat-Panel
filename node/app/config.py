@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     node_name: str = "node-1"
     node_role: str = "iran"  # "iran" or "foreign"
     
-    panel_ca_path: str = "/etc/smite-node/ca.crt"
+    panel_ca_path: str = "/etc/nosrat-node/ca.crt"
     panel_address: str = "panel.example.com:443"
     panel_api_port: int = 8000
     

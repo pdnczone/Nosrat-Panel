@@ -1,7 +1,7 @@
 .PHONY: help install-panel install-node build-panel build-node build-frontend up down logs status
 
 help:
-	@echo "Smite - Tunneling Control Panel"
+	@echo "Nosrat - Tunneling Control Panel"
 	@echo ""
 	@echo "Commands:"
 	@echo "  make install-panel    - Install panel dependencies"
@@ -21,7 +21,7 @@ install-node:
 	cd node && pip install -r requirements.txt
 
 build-panel:
-	DOCKER_BUILDKIT=1 docker compose build smite-panel
+	DOCKER_BUILDKIT=1 docker compose build nosrat-panel
 
 build-node:
 	cd node && DOCKER_BUILDKIT=1 docker compose build
@@ -42,5 +42,5 @@ logs:
 	docker compose logs -f
 
 status:
-	smite status || echo "Install CLI: bash cli/install_cli.sh"
+	nosrat status || echo "Install CLI: bash cli/install_cli.sh"
 

@@ -54,7 +54,7 @@ WORKDIR /app
 
 ARG SMITE_VERSION=latest
 LABEL org.opencontainers.image.version="${SMITE_VERSION}"
-LABEL smite.version="${SMITE_VERSION}"
+LABEL nosrat.version="${SMITE_VERSION}"
 ENV SMITE_VERSION="${SMITE_VERSION}"
 RUN echo "${SMITE_VERSION}" > /app/VERSION
 

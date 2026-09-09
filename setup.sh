@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# nosrat-panel installer — Smite-powered backend, Nosrat WebUI
+# nosrat-panel installer — Nosrat-powered backend, Nosrat WebUI
 # Usage: sudo bash setup.sh
 set -Eeo pipefail
 
@@ -222,9 +222,9 @@ build_frontend() {
     set -e
 }
 
-# ── Prepare Smite panel backend ───────────────────────────────────────────
+# ── Prepare Nosrat panel backend ───────────────────────────────────────────
 prepare_panel() {
-    header "Preparing Smite Panel Backend (FastAPI + Tunnel Engines)"
+    header "Preparing Nosrat Panel Backend (FastAPI + Tunnel Engines)"
     cd "$INSTALL_DIR"
 
     # Create .env for panel
@@ -264,10 +264,10 @@ EOF
 
 # ── Install systemd service for panel (Docker compose) ────────────────────
 install_panel_service() {
-    header "Installing systemd service for Smite Panel"
+    header "Installing systemd service for Nosrat Panel"
     cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
-Description=Nosrat Panel Backend (Smite + FastAPI)
+Description=Nosrat Panel Backend (Nosrat + FastAPI)
 After=docker.service network-online.target
 Requires=docker.service
 Wants=network-online.target
@@ -442,12 +442,12 @@ install_cli() {
     if [[ -f "cli/install_cli.sh" ]]; then
         bash cli/install_cli.sh > /dev/null 2>&1 || true
     else
-        if [[ -f "cli/smite.py" ]]; then
-            cp cli/smite.py /usr/local/bin/nosrat 2>/dev/null || true
+        if [[ -f "cli/nosrat.py" ]]; then
+            cp cli/nosrat.py /usr/local/bin/nosrat 2>/dev/null || true
             chmod +x /usr/local/bin/nosrat 2>/dev/null || true
         fi
-        if [[ -f "cli/smite-node.py" ]]; then
-            cp cli/smite-node.py /usr/local/bin/nosrat-node 2>/dev/null || true
+        if [[ -f "cli/nosrat-node.py" ]]; then
+            cp cli/nosrat-node.py /usr/local/bin/nosrat-node 2>/dev/null || true
             chmod +x /usr/local/bin/nosrat-node 2>/dev/null || true
         fi
     fi
@@ -516,7 +516,7 @@ done
 log "Application files copied to $INSTALL_DIR"
 
 # ── Step 4: Prepare panel backend ─────────────────────────────────────────
-header "Step 4/7: Preparing Smite Panel Backend"
+header "Step 4/7: Preparing Nosrat Panel Backend"
 prepare_panel
 
 # ── Step 5: Build frontend ────────────────────────────────────────────────
@@ -540,7 +540,7 @@ systemctl restart nosrat-panel-backend.service 2>/dev/null
 sleep 5
 
 if systemctl is-active --quiet nosrat-panel-backend.service 2>/dev/null; then
-    log "Nosrat Panel Backend (Smite) is running"
+    log "Nosrat Panel Backend (Nosrat) is running"
 else
     warn "Backend may have issues - check: journalctl -u nosrat-panel-backend -n 30"
     docker compose logs --tail=50 2>/dev/null || true

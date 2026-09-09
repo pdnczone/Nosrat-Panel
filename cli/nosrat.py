@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Smite Panel CLI
+Nosrat Panel CLI
 """
 import os
 import sys
@@ -29,7 +29,7 @@ else:
 def get_compose_file():
     """Get docker-compose file path"""
     possible_roots = [
-        Path("/opt/smite"),
+        Path("/opt/nosrat"),
         Path.cwd(),
         Path(__file__).parent.parent,
     ]
@@ -42,13 +42,13 @@ def get_compose_file():
         if docker_compose.exists():
             return docker_compose
     
-    return Path("/opt/smite") / "docker-compose.yml"
+    return Path("/opt/nosrat") / "docker-compose.yml"
 
 
 def get_env_file():
     """Get .env file path"""
     possible_roots = [
-        Path("/opt/smite"),
+        Path("/opt/nosrat"),
         Path.cwd(),
         Path(__file__).parent.parent,
     ]
@@ -58,7 +58,7 @@ def get_env_file():
         if env_file.exists():
             return env_file
     
-    return Path("/opt/smite") / ".env"
+    return Path("/opt/nosrat") / ".env"
 
 
 def get_panel_port():
@@ -134,14 +134,14 @@ def cmd_admin_create(args):
     
     try:
         check_result = subprocess.run(
-            ["docker", "ps", "-a", "--filter", "name=smite-panel", "--format", "{{.Names}}"],
+            ["docker", "ps", "-a", "--filter", "name=nosrat-panel", "--format", "{{.Names}}"],
             capture_output=True,
             text=True,
             timeout=5
         )
         
         if check_result.returncode != 0 or not check_result.stdout.strip():
-            print("Container 'smite-panel' not found.")
+            print("Container 'nosrat-panel' not found.")
             print("\nStarting the panel...")
             compose_file = get_compose_file()
             if not compose_file.exists():
@@ -162,7 +162,7 @@ def cmd_admin_create(args):
             import time
             time.sleep(5)
             check_result = subprocess.run(
-                ["docker", "ps", "-a", "--filter", "name=smite-panel", "--format", "{{.Names}}"],
+                ["docker", "ps", "-a", "--filter", "name=nosrat-panel", "--format", "{{.Names}}"],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -198,7 +198,7 @@ def cmd_admin_create(args):
                     print("Attempting to start container...")
                     compose_file = get_compose_file()
                     start_result = subprocess.run(
-                        ["docker", "compose", "-f", str(compose_file), "start", "smite-panel"],
+                        ["docker", "compose", "-f", str(compose_file), "start", "nosrat-panel"],
                         capture_output=True,
                         text=True
                     )
@@ -217,7 +217,7 @@ def cmd_admin_create(args):
             waited += 2
         else:
             print("\nTimeout waiting for container to be ready.")
-            print("Please check container status: docker ps -a | grep smite-panel")
+            print("Please check container status: docker ps -a | grep nosrat-panel")
             sys.exit(1)
         
         if container_name:
@@ -325,7 +325,7 @@ asyncio.run(create())
         else:
             print("Warning: Container not running or still restarting. Checking container status...")
             status_proc = subprocess.run(
-                ["docker", "ps", "-a", "--filter", "name=smite-panel", "--format", "table {{.Names}}\\t{{.Status}}"],
+                ["docker", "ps", "-a", "--filter", "name=nosrat-panel", "--format", "table {{.Names}}\\t{{.Status}}"],
                 capture_output=True,
                 text=True
             )
@@ -339,7 +339,7 @@ asyncio.run(create())
     try:
         possible_roots = [
             Path(__file__).parent.parent,
-            Path("/opt/smite"),
+            Path("/opt/nosrat"),
             Path.cwd(),
         ]
         
@@ -408,14 +408,14 @@ def cmd_admin_update(args):
     
     try:
         check_result = subprocess.run(
-            ["docker", "ps", "-a", "--filter", "name=smite-panel", "--format", "{{.Names}}"],
+            ["docker", "ps", "-a", "--filter", "name=nosrat-panel", "--format", "{{.Names}}"],
             capture_output=True,
             text=True,
             timeout=5
         )
         
         if check_result.returncode != 0 or not check_result.stdout.strip():
-            print("Container 'smite-panel' not found.")
+            print("Container 'nosrat-panel' not found.")
             print("\nStarting the panel...")
             compose_file = get_compose_file()
             if not compose_file.exists():
@@ -436,7 +436,7 @@ def cmd_admin_update(args):
             import time
             time.sleep(5)
             check_result = subprocess.run(
-                ["docker", "ps", "-a", "--filter", "name=smite-panel", "--format", "{{.Names}}"],
+                ["docker", "ps", "-a", "--filter", "name=nosrat-panel", "--format", "{{.Names}}"],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -472,7 +472,7 @@ def cmd_admin_update(args):
                     print("Attempting to start container...")
                     compose_file = get_compose_file()
                     start_result = subprocess.run(
-                        ["docker", "compose", "-f", str(compose_file), "start", "smite-panel"],
+                        ["docker", "compose", "-f", str(compose_file), "start", "nosrat-panel"],
                         capture_output=True,
                         text=True
                     )
@@ -491,7 +491,7 @@ def cmd_admin_update(args):
             waited += 2
         else:
             print("\nTimeout waiting for container to be ready.")
-            print("Please check container status: docker ps -a | grep smite-panel")
+            print("Please check container status: docker ps -a | grep nosrat-panel")
             sys.exit(1)
         
         if container_name:
@@ -594,7 +594,7 @@ asyncio.run(update())
         else:
             print("Warning: Container not running or still restarting. Checking container status...")
             status_proc = subprocess.run(
-                ["docker", "ps", "-a", "--filter", "name=smite-panel", "--format", "table {{.Names}}\\t{{.Status}}"],
+                ["docker", "ps", "-a", "--filter", "name=nosrat-panel", "--format", "table {{.Names}}\\t{{.Status}}"],
                 capture_output=True,
                 text=True
             )
@@ -608,7 +608,7 @@ asyncio.run(update())
     try:
         possible_roots = [
             Path(__file__).parent.parent,
-            Path("/opt/smite"),
+            Path("/opt/nosrat"),
             Path.cwd(),
         ]
         
@@ -666,7 +666,7 @@ def cmd_status(args):
     print("Panel Status:")
     print("-" * 50)
     
-    result = subprocess.run(["docker", "ps", "--filter", "name=smite-panel", "--format", "{{.Status}}"], 
+    result = subprocess.run(["docker", "ps", "--filter", "name=nosrat-panel", "--format", "{{.Status}}"], 
                           capture_output=True, text=True)
     if result.stdout.strip():
         print(f"Docker: {result.stdout.strip()}")
@@ -716,17 +716,17 @@ def cmd_update(args):
 def cmd_restart(args):
     """Restart panel (recreate container to pick up .env changes, no pull)"""
     print("Restarting panel...")
-    run_docker_compose(["stop", "smite-panel"])
-    run_docker_compose(["rm", "-f", "smite-panel"])
-    run_docker_compose(["up", "-d", "--no-deps", "smite-panel"])
+    run_docker_compose(["stop", "nosrat-panel"])
+    run_docker_compose(["rm", "-f", "nosrat-panel"])
+    run_docker_compose(["up", "-d", "--no-deps", "nosrat-panel"])
     
     import time
     time.sleep(2)
-    result = subprocess.run(["docker", "ps", "--filter", "name=smite-panel", "--format", "{{.Status}}"], capture_output=True, text=True)
+    result = subprocess.run(["docker", "ps", "--filter", "name=nosrat-panel", "--format", "{{.Status}}"], capture_output=True, text=True)
     if not result.stdout.strip() or "Up" not in result.stdout:
-        print("Warning: Panel container may not be running. Check logs with: docker logs smite-panel")
+        print("Warning: Panel container may not be running. Check logs with: docker logs nosrat-panel")
     
-    result = subprocess.run(["docker", "ps", "--filter", "name=smite-nginx", "--format", "{{.Names}}"], capture_output=True, text=True)
+    result = subprocess.run(["docker", "ps", "--filter", "name=nosrat-nginx", "--format", "{{.Names}}"], capture_output=True, text=True)
     if result.stdout.strip():
         print("Restarting nginx...")
         run_docker_compose(["stop", "nginx"], profile="https")
@@ -761,21 +761,21 @@ def cmd_edit_env(args):
 def cmd_logs(args):
     """Stream logs"""
     follow = ["--follow"] if args.follow else []
-    run_docker_compose(["logs"] + follow + ["smite-panel"])
+    run_docker_compose(["logs"] + follow + ["nosrat-panel"])
 
 
 def cmd_uninstall(args):
-    """Uninstall Smite Panel - removes everything"""
+    """Uninstall Nosrat Panel - removes everything"""
     print("=" * 60)
-    print("⚠️  WARNING: This will completely remove Smite Panel!")
+    print("⚠️  WARNING: This will completely remove Nosrat Panel!")
     print("=" * 60)
     print("\nThis will remove:")
-    print("  - All Docker containers (smite-panel, smite-nginx)")
+    print("  - All Docker containers (nosrat-panel, nosrat-nginx)")
     print("  - All Docker volumes")
-    print("  - Installation directory (/opt/smite)")
-    print("  - CLI script (/usr/local/bin/smite)")
-    print("  - Crontab entries related to smite")
-    print("  - Docker images (ghcr.io/zzedix/smite-panel, ghcr.io/zzedix/smite-nginx)")
+    print("  - Installation directory (/opt/nosrat)")
+    print("  - CLI script (/usr/local/bin/nosrat)")
+    print("  - Crontab entries related to nosrat")
+    print("  - Docker images (ghcr.io/zzedix/nosrat-panel, ghcr.io/zzedix/nosrat-nginx)")
     print("\n⚠️  ALL DATA WILL BE LOST!")
     print("=" * 60)
     
@@ -801,7 +801,7 @@ def cmd_uninstall(args):
             finally:
                 os.chdir(original_cwd)
         
-        for container in ["smite-panel", "smite-nginx"]:
+        for container in ["nosrat-panel", "nosrat-nginx"]:
             subprocess.run(["docker", "stop", container], capture_output=True, check=False)
             subprocess.run(["docker", "rm", "-f", container], capture_output=True, check=False)
         print("  ✓ Containers removed")
@@ -810,7 +810,7 @@ def cmd_uninstall(args):
     
     print("\n[2/6] Removing Docker volumes...")
     try:
-        result = subprocess.run(["docker", "volume", "ls", "-q", "--filter", "name=smite"], 
+        result = subprocess.run(["docker", "volume", "ls", "-q", "--filter", "name=nosrat"], 
                               capture_output=True, text=True)
         volumes = result.stdout.strip().split('\n')
         for volume in volumes:
@@ -822,7 +822,7 @@ def cmd_uninstall(args):
     
     print("\n[3/6] Removing Docker images...")
     try:
-        for image in ["ghcr.io/zzedix/smite-panel", "ghcr.io/zzedix/smite-nginx"]:
+        for image in ["ghcr.io/zzedix/nosrat-panel", "ghcr.io/zzedix/nosrat-nginx"]:
             subprocess.run(["docker", "rmi", "-f", image], capture_output=True, check=False)
             subprocess.run(["docker", "rmi", "-f", f"{image}:latest"], capture_output=True, check=False)
             result = subprocess.run(["docker", "images", "--format", "{{.Repository}}:{{.Tag}}", image], 
@@ -835,7 +835,7 @@ def cmd_uninstall(args):
         print(f"  ⚠️  Warning: {e}")
     
     print("\n[4/6] Removing installation directory...")
-    install_dirs = [Path("/opt/smite")]
+    install_dirs = [Path("/opt/nosrat")]
     for install_dir in install_dirs:
         if install_dir.exists():
             try:
@@ -847,11 +847,11 @@ def cmd_uninstall(args):
             print(f"  - {install_dir} does not exist")
     
     print("\n[5/6] Removing CLI script...")
-    cli_path = Path("/usr/local/bin/smite")
+    cli_path = Path("/usr/local/bin/nosrat")
     if cli_path.exists():
         try:
             cli_path.unlink()
-            print("  ✓ Removed /usr/local/bin/smite")
+            print("  ✓ Removed /usr/local/bin/nosrat")
         except Exception as e:
             print(f"  ⚠️  Warning: Could not remove CLI script: {e}")
     else:
@@ -862,7 +862,7 @@ def cmd_uninstall(args):
         result = subprocess.run(["crontab", "-l"], capture_output=True, text=True, check=False)
         if result.returncode == 0:
             lines = result.stdout.splitlines()
-            new_lines = [line for line in lines if "smite" not in line.lower() and "certbot" not in line.lower()]
+            new_lines = [line for line in lines if "nosrat" not in line.lower() and "certbot" not in line.lower()]
             if len(new_lines) != len(lines):
                 new_crontab = "\n".join(new_lines) + "\n" if new_lines else ""
                 subprocess.run(["crontab", "-"], input=new_crontab, text=True, check=False)
@@ -875,12 +875,12 @@ def cmd_uninstall(args):
         print(f"  ⚠️  Warning: Could not modify crontab: {e}")
     
     print("\n" + "=" * 60)
-    print("✅ Smite Panel has been completely uninstalled!")
+    print("✅ Nosrat Panel has been completely uninstalled!")
     print("=" * 60)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Smite Panel CLI")
+    parser = argparse.ArgumentParser(description="Nosrat Panel CLI")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
     admin_parser = subparsers.add_parser("admin", help="Admin management")
@@ -904,7 +904,7 @@ def main():
     logs_parser = subparsers.add_parser("logs", help="View logs")
     logs_parser.add_argument("-f", "--follow", action="store_true", help="Follow logs")
     
-    subparsers.add_parser("uninstall", help="Completely remove Smite Panel")
+    subparsers.add_parser("uninstall", help="Completely remove Nosrat Panel")
     
     args = parser.parse_args()
     

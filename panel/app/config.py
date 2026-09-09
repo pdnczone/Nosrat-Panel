@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     docs_enabled: bool = True
     
     db_type: Literal["sqlite"] = "sqlite"
-    db_path: str = "./data/smite.db"
+    db_path: str = "./data/nosrat.db"
     db_host: str = "localhost"
     db_port: int = 3306
     db_name: str = "smite"

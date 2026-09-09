@@ -1,5 +1,5 @@
 #!/bin/bash
-# Setup Let's Encrypt SSL certificates for Smite Panel
+# Setup Let's Encrypt SSL certificates for Nosrat Panel
 
 set -e
 
@@ -41,10 +41,10 @@ mkdir -p /var/www/certbot
 
 # Stop nginx temporarily if running (for standalone mode)
 NGINX_RUNNING=false
-if docker ps | grep -q smite-nginx; then
+if docker ps | grep -q nosrat-nginx; then
     NGINX_RUNNING=true
     echo "Stopping nginx temporarily for certificate generation..."
-    docker stop smite-nginx > /dev/null 2>&1 || true
+    docker stop nosrat-nginx > /dev/null 2>&1 || true
 fi
 
 # Wait a moment for port 80 to be free
@@ -68,7 +68,7 @@ certbot certonly \
     
     # Restart nginx if it was running
     if [ "$NGINX_RUNNING" = true ]; then
-        docker start smite-nginx > /dev/null 2>&1 || true
+        docker start nosrat-nginx > /dev/null 2>&1 || true
     fi
     exit 0
 }
@@ -81,12 +81,12 @@ fi
 
 # Set up auto-renewal cron job
 echo "Setting up certificate auto-renewal..."
-(crontab -l 2>/dev/null | grep -v "certbot renew" | grep -v "smite-nginx"; echo "0 3 * * * certbot renew --quiet --deploy-hook 'docker restart smite-nginx'") | crontab -
+(crontab -l 2>/dev/null | grep -v "certbot renew" | grep -v "nosrat-nginx"; echo "0 3 * * * certbot renew --quiet --deploy-hook 'docker restart nosrat-nginx'") | crontab -
 
 # Restart nginx if it was running
 if [ "$NGINX_RUNNING" = true ]; then
     echo "Restarting nginx..."
-    docker start smite-nginx > /dev/null 2>&1 || true
+    docker start nosrat-nginx > /dev/null 2>&1 || true
 fi
 
 echo -e "${GREEN}✓ SSL certificate setup complete!${NC}"

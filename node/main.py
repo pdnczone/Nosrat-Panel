@@ -1,5 +1,5 @@
 """
-Smite Node - Lightweight Agent
+Nosrat Node - Lightweight Agent
 """
 import asyncio
 import logging
@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Smite Node",
+    title="Nosrat Node",
     description="Lightweight Tunnel Agent",
     version="1.0.0",
     lifespan=lifespan,
@@ -101,7 +101,7 @@ app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "smite-node"}
+    return {"status": "ok", "service": "nosrat-node"}
 
 
 if __name__ == "__main__":

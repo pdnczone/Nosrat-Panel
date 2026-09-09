@@ -14,7 +14,7 @@ class FrpCommClient:
     """Manages FRP client for node-panel communication"""
     
     def __init__(self):
-        self.config_dir = Path("/etc/smite-node/frp_comm")
+        self.config_dir = Path("/etc/nosrat-node/frp_comm")
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.process: Optional[subprocess.Popen] = None
         self.config_file = self.config_dir / "frpc_comm.yaml"

@@ -83,7 +83,7 @@ class TelegramBot:
     def t(self, user_id: int, key: str, **kwargs) -> str:
         """Get text (simplified - no translations)"""
         translations = {
-            "welcome": "👋 Welcome to Smite Panel Bot!\n\nSelect an action:",
+            "welcome": "👋 Welcome to Nosrat Panel Bot!\n\nSelect an action:",
             "access_denied": "❌ Access denied. You are not an admin.",
             "node_stats": "📊 Node Stats",
             "tunnel_stats": "📊 Tunnel Stats",
@@ -233,7 +233,7 @@ class TelegramBot:
                                     await self.application.bot.send_document(
                                         chat_id=admin_id,
                                         document=f,
-                                        filename=f"smite_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                                        filename=f"nosrat_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                                         caption=f"🔄 Automatic backup - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                                     )
                             except Exception as e:
@@ -389,7 +389,7 @@ Use buttons in messages to interact with nodes and tunnels."""
                 with open(backup_path, 'rb') as f:
                     await update.message.reply_document(
                         document=f,
-                        filename=f"smite_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                        filename=f"nosrat_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                         caption="✅ Backup created successfully",
                         reply_markup=reply_markup
                     )
@@ -433,15 +433,15 @@ Use buttons in messages to interact with nodes and tunnels."""
             from app.config import settings
             import os
             
-            backup_dir = Path("/tmp/smite_backup")
+            backup_dir = Path("/tmp/nosrat_backup")
             backup_dir.mkdir(exist_ok=True)
             
             # Find panel root directory
-            data_dir = Path("/opt/smite/panel/data")
+            data_dir = Path("/opt/nosrat/panel/data")
             if not data_dir.exists():
                 panel_root = Path(os.getcwd())
                 if not (panel_root / "data").exists():
-                    for possible_root in [Path("/opt/smite"), Path(__file__).parent.parent.parent]:
+                    for possible_root in [Path("/opt/nosrat"), Path(__file__).parent.parent.parent]:
                         if (possible_root / "data").exists():
                             panel_root = possible_root
                             break
@@ -451,11 +451,11 @@ Use buttons in messages to interact with nodes and tunnels."""
                 shutil.copytree(data_dir, backup_dir / "data", dirs_exist_ok=True)
                 logger.info(f"Backed up data folder from: {data_dir}")
             
-            panel_root = data_dir.parent if data_dir.exists() else Path("/opt/smite/panel")
+            panel_root = data_dir.parent if data_dir.exists() else Path("/opt/nosrat/panel")
             if not (panel_root / "certs").exists():
                 panel_root = Path(os.getcwd())
                 if not (panel_root / "certs").exists():
-                    for possible_root in [Path("/opt/smite"), Path(__file__).parent.parent.parent]:
+                    for possible_root in [Path("/opt/nosrat"), Path(__file__).parent.parent.parent]:
                         if (possible_root / "certs").exists():
                             panel_root = possible_root
                             break
@@ -499,13 +499,13 @@ Use buttons in messages to interact with nodes and tunnels."""
             # Also try common locations as fallback
             env_locations = [
                 config_dir / ".env",
-                Path("/opt/smite/.env"),
+                Path("/opt/nosrat/.env"),
                 Path(os.getcwd()) / ".env"
             ]
             
             compose_locations = [
                 config_dir / "docker-compose.yml",
-                Path("/opt/smite/docker-compose.yml"),
+                Path("/opt/nosrat/docker-compose.yml"),
                 Path(os.getcwd()) / "docker-compose.yml"
             ]
             
@@ -549,7 +549,7 @@ Use buttons in messages to interact with nodes and tunnels."""
                                 shutil.copy2(cert_path, backup_dir / "letsencrypt" / "live" / settings.panel_domain / cert_file)
             
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_file = f"/tmp/smite_backup_{timestamp}.zip"
+            backup_file = f"/tmp/nosrat_backup_{timestamp}.zip"
             
             with zipfile.ZipFile(backup_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 for root, dirs, files in os.walk(backup_dir):
@@ -816,7 +816,7 @@ Use buttons in messages to interact with nodes and tunnels."""
                 with open(backup_path, 'rb') as f:
                     await query.message.reply_document(
                         document=f,
-                        filename=f"smite_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                        filename=f"nosrat_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                         caption="✅ Backup created successfully",
                         reply_markup=reply_markup
                     )
